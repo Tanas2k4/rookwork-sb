@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Task, Status, Priority, User } from "../../../types/project";
 import { childTypeMap } from "../../../types/project";
 import { TaskPanelHeader } from "./TaskPanelHeader";
@@ -6,15 +6,14 @@ import { TaskPanelDetails } from "./TaskPanelDetails";
 import { ChildrenSection } from "./ChildrenSection";
 import { SubtasksSection } from "./SubtasksSection";
 import { ActivitySection } from "./ActivitySection";
-import type { Comment } from "../../../types/project";
 import { workLogApi } from "../../../api/workLogApi";
+import type { WorkLogResponse } from "../../../api/contracts/worklog";
 import { RiTimeLine } from "react-icons/ri";
 
 interface Props {
   task: Task | null;
   open: boolean;
   allTasks: Task[];
-  comments: Comment[];
   onClose: () => void;
   onOpenTask: (task: Task) => void;
   onSaveTitle: (title: string) => void;
@@ -29,31 +28,83 @@ interface Props {
   onToggleSubtask: (id: number) => void;
   onAddSubtask: (title: string) => void;
   onDeleteSubtask: (id: number) => void;
-  onSubmitComment: (content: string, parentId?: number) => void;
-  onEditComment: (id: number, content: string) => void;
-  onDeleteComment: (id: number) => void;
 }
 
-// ── Log Work Section ───────────────────────────────────────
-function LogWorkSection({ taskId }: { taskId: string }) {
-  const [hours, setHours] = useState("");
+function formatLoggedAt(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function avatarUrl(name: string, pic: string | null | undefined) {
+  return pic ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7c3aed&color=fff`;
+}
+
+function toDatetimeLocal(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ── Log Work Section ───────────────────────────────────────────────────────────
+function LogWorkSection({ taskUuid }: { taskUuid: string }) {
+  const nowStr = toDatetimeLocal(new Date());
+  const [startAt, setStartAt] = useState(nowStr);
+  const [endAt, setEndAt] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [logs, setLogs] = useState<WorkLogResponse[]>([]);
+
+  // Reset startAt về now mỗi khi expand
+  useEffect(() => {
+    if (expanded) setStartAt(toDatetimeLocal(new Date()));
+  }, [expanded]);
+
+  // Load existing logs khi expand
+  useEffect(() => {
+    if (!expanded || !taskUuid) return;
+    workLogApi.getByIssue(taskUuid)
+      .then((data) => setLogs(data ?? []))
+      .catch(console.error);
+  }, [expanded, taskUuid]);
+
+  // Tính số giờ từ start → end
+  const computedHours = (() => {
+    if (!endAt) return null;
+    const start = new Date(startAt || nowStr);
+    const end = new Date(endAt);
+    const diff = (end.getTime() - start.getTime()) / 3600000;
+    return diff > 0 ? parseFloat(diff.toFixed(2)) : null;
+  })();
+
+  const totalHours = logs.reduce((sum, l) => sum + Number(l.hours), 0);
 
   async function handleSubmit() {
-    const h = parseFloat(hours);
-    if (!hours || isNaN(h) || h <= 0) {
-      setError("Please enter valid hours (e.g. 1.5)");
+    if (!endAt) {
+      setError("Please select an end time");
+      return;
+    }
+    if (!computedHours || computedHours <= 0) {
+      setError("End time must be after start time");
       return;
     }
     setError("");
     setLoading(true);
     try {
-      await workLogApi.logWork({ issueId: taskId, hours: h, note: note.trim() || undefined });
-      setHours("");
+      // datetime-local "2024-05-24T12:00" → "2024-05-24T12:00:00"
+      const created = await workLogApi.logWork({
+        issueId: taskUuid,
+        startAt: `${startAt}:00`,
+        endAt: `${endAt}:00`,
+        note: note.trim() || undefined,
+      });
+      // logWork trả về array (có thể split nhiều ngày)
+      setLogs((prev) => [...created, ...prev]);
+      setStartAt(toDatetimeLocal(new Date()));
+      setEndAt("");
       setNote("");
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
@@ -64,6 +115,8 @@ function LogWorkSection({ taskId }: { taskId: string }) {
     }
   }
 
+  if (!taskUuid || taskUuid.startsWith("-")) return null;
+
   return (
     <div>
       <button
@@ -72,65 +125,122 @@ function LogWorkSection({ taskId }: { taskId: string }) {
       >
         <RiTimeLine size={14} />
         Log Work
+        {totalHours > 0 && (
+          <span className="ml-1 text-purple-600 font-bold">{totalHours.toFixed(1)}h total</span>
+        )}
         <span className={`ml-1 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>▾</span>
       </button>
 
       {expanded && (
-        <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100">
-          {/* Hours input */}
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-              Hours spent <span className="text-red-400">*</span>
-            </label>
-            <input
-              type="number"
-              min="0.25"
-              step="0.25"
-              value={hours}
-              onChange={(e) => { setHours(e.target.value); setError(""); }}
-              placeholder="e.g. 1.5"
-              className={`w-full text-sm border-2 rounded-lg px-3 py-2 outline-none transition bg-white ${
-                error ? "border-red-400" : "border-gray-200 focus:border-purple-500"
-              }`}
-            />
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        <div className="space-y-4">
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100">
+            {/* Start */}
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                Start <span className="text-gray-300">defaults to now</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={startAt}
+                onChange={(e) => { setStartAt(e.target.value); setError(""); }}
+                className="w-full text-sm border-2 border-gray-200 rounded-lg px-3 py-2 outline-none transition bg-white focus:border-purple-500"
+              />
+            </div>
+
+            {/* End */}
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                End <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={endAt}
+                onChange={(e) => { setEndAt(e.target.value); setError(""); }}
+                className={`w-full text-sm border-2 rounded-lg px-3 py-2 outline-none transition bg-white ${
+                  error ? "border-red-400" : "border-gray-200 focus:border-purple-500"
+                }`}
+              />
+              {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+            </div>
+
+            {/* Computed hours preview */}
+            {computedHours !== null && computedHours > 0 && (
+              <div className="flex items-center gap-2 bg-purple-50 rounded-lg px-3 py-2 border border-purple-100">
+                <RiTimeLine size={13} className="text-purple-500 shrink-0" />
+                <span className="text-xs text-purple-700 font-medium">
+                  {computedHours.toFixed(2)} hours
+                </span>
+              </div>
+            )}
+
+            {/* Note */}
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                Note <span className="text-gray-300">optional</span>
+              </label>
+              <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
+                placeholder="What did you work on?"
+                className="w-full text-sm border-2 border-gray-200 rounded-lg px-3 py-2 outline-none transition bg-white focus:border-purple-500"
+              />
+            </div>
+
+            <button
+              onClick={handleSubmit}
+              disabled={loading || !computedHours || computedHours <= 0}
+              className="w-full flex items-center justify-center gap-2 bg-purple-900 hover:bg-purple-800 disabled:opacity-60 text-white text-xs font-medium py-2 rounded-lg transition"
+            >
+              <RiTimeLine size={13} />
+              {loading ? "Logging..." : success ? "✓ Logged!" : "Log Work"}
+            </button>
           </div>
 
-          {/* Note input */}
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-              Note <span className="text-gray-300">optional</span>
-            </label>
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
-              placeholder="What did you work on?"
-              className="w-full text-sm border-2 border-gray-200 rounded-lg px-3 py-2 outline-none transition bg-white focus:border-purple-500"
-            />
-          </div>
-
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-purple-900 hover:bg-purple-800 disabled:opacity-60 text-white text-xs font-medium py-2 rounded-lg transition"
-          >
-            <RiTimeLine size={13} />
-            {loading ? "Logging..." : success ? "✓ Logged!" : "Log Work"}
-          </button>
+          {/* Existing logs */}
+          {logs.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Work Log History
+                </p>
+                <span className="text-xs font-bold text-purple-600">{totalHours.toFixed(1)}h total</span>
+              </div>
+              <div className="space-y-2">
+                {logs.map((log) => (
+                  <div key={log.id} className="flex items-start gap-2.5 bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
+                    <img
+                      src={avatarUrl(log.userProfileName, log.userPicture)}
+                      className="w-6 h-6 rounded-full shrink-0 mt-0.5"
+                      alt=""
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-gray-700">{log.userProfileName}</span>
+                        <span className="text-xs font-bold text-purple-600 shrink-0">{Number(log.hours).toFixed(1)}h</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{formatLoggedAt(log.loggedAt)}</p>
+                      {log.note && (
+                        <p className="text-xs text-gray-500 mt-1 italic">"{log.note}"</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-// ── Main Panel ─────────────────────────────────────────────
+// ── Main Panel ─────────────────────────────────────────────────────────────────
 export function TaskPanel({
   task,
   open,
   allTasks,
-  comments,
   onClose,
   onOpenTask,
   onSaveTitle,
@@ -145,13 +255,15 @@ export function TaskPanel({
   onToggleSubtask,
   onAddSubtask,
   onDeleteSubtask,
-  onSubmitComment,
-  onEditComment,
-  onDeleteComment,
 }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [editDescValue, setEditDescValue] = useState("");
+
+  // Resolve the real UUID from the numeric id stored in the task
+  // The uuid is embedded in task via the mapping in useBoard
+  const taskUuid: string = (task as (Task & { _uuid?: string }) | null)?._uuid
+    ?? String(task?.id ?? "");
 
   return (
     <>
@@ -234,16 +346,10 @@ export function TaskPanel({
                 onDelete={onDeleteSubtask}
               />
 
-              {/* Log Work — task.id là number (UI type), cần UUID thật */}
-              {/* TODO: sau khi wire BoardView với real API, đổi task.id → task.uuid */}
-              <LogWorkSection taskId={String(task.id)} />
+              {/* Log Work — now uses real UUID */}
+              <LogWorkSection taskUuid={taskUuid} />
 
-              <ActivitySection
-                comments={comments}
-                onSubmit={onSubmitComment}
-                onEdit={onEditComment}
-                onDelete={onDeleteComment}
-              />
+              <ActivitySection issueUuid={taskUuid} />
             </div>
 
             {/* Footer */}

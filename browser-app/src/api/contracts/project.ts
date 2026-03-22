@@ -18,6 +18,8 @@ export interface ProjectResponse {
   isPrivate: boolean;
   ownerName: string;
   members: UserSummary[];
+  totalIssues: number;
+  doneIssues: number;
   createdAt: string;
   updatedAt: string;
 }

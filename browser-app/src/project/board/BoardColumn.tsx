@@ -17,7 +17,7 @@ interface Props {
     type: TaskType,
     priority: Priority,
     status: Status,
-  ) => void;
+  ) => Promise<unknown> | void;
   onMoveTask: (taskId: number, newStatus: Status) => void;
   onReorderTasks: (taskId: number, fromIndex: number, toIndex: number) => void;
 }
@@ -34,9 +34,10 @@ export function BoardColumn({
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null);
   const [adding, setAdding] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [dropIndex, setDropIndex] = useState(-1);
   const meta = statusMap[status];
-  // use dnd
+
   const [{ isOver }, drop] = useDrop(
     () => ({
       accept: "task",
@@ -55,35 +56,26 @@ export function BoardColumn({
         if (item.task.status === status && columnRef.current) {
           const clientOffset = monitor.getClientOffset();
           const containerRect = columnRef.current.getBoundingClientRect();
-
           if (clientOffset) {
             const hoverClientY = clientOffset.y - containerRect.top;
-            const cardsContainer =
-              columnRef.current.querySelector(".space-y-3");
-
+            const cardsContainer = columnRef.current.querySelector(".space-y-3");
             if (cardsContainer) {
               const children = Array.from(cardsContainer.children);
               let targetIndex = children.length - 1;
-
               for (let i = 0; i < children.length; i++) {
-                const childRect = (
-                  children[i] as HTMLElement
-                ).getBoundingClientRect();
+                const childRect = (children[i] as HTMLElement).getBoundingClientRect();
                 const childY = childRect.top - containerRect.top;
                 if (hoverClientY < childY + childRect.height / 2) {
                   targetIndex = i;
                   break;
                 }
               }
-
               setDropIndex(targetIndex);
             }
           }
         }
       },
-      collect: (monitor) => ({
-        isOver: monitor.isOver(),
-      }),
+      collect: (monitor) => ({ isOver: monitor.isOver() }),
     }),
     [status, onMoveTask, onReorderTasks, dropIndex, tasks],
   );
@@ -91,6 +83,16 @@ export function BoardColumn({
   useEffect(() => {
     drop(columnRef);
   }, [drop]);
+
+  async function handleSubmit(title: string, type: TaskType, priority: Priority) {
+    setSubmitting(true);
+    try {
+      await onCreateTask(title, type, priority, status);
+      setAdding(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div
@@ -100,9 +102,7 @@ export function BoardColumn({
       }`}
     >
       {/* Column header */}
-      <div
-        className={`flex items-center justify-between mb-4 pb-3 border-b-2 ${meta.headerColor}`}
-      >
+      <div className={`flex items-center justify-between mb-4 pb-3 border-b-2 ${meta.headerColor}`}>
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${meta.dotColor}`} />
           <h3 className="text-sm font-semibold text-gray-700 tracking-wide">
@@ -140,11 +140,9 @@ export function BoardColumn({
 
         {adding ? (
           <AddTaskForm
-            onSubmit={(title, type, priority) => {
-              onCreateTask(title, type, priority, status);
-              setAdding(false);
-            }}
+            onSubmit={handleSubmit}
             onCancel={() => setAdding(false)}
+            submitting={submitting}
           />
         ) : (
           <AddTaskButton onClick={() => setAdding(true)} />

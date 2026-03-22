@@ -5,4 +5,7 @@ import svgr from "vite-plugin-svgr";
 
 export default defineConfig({
   plugins: [react(), svgr()] as PluginOption[],
+  define: {
+    global: "globalThis",
+  },
 });

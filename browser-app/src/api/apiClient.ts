@@ -37,8 +37,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
     const { accessToken: newToken } = await refreshRes.json();
     tokenStorage.save(newToken, refreshToken);
-
-    // Retry với token mới
     return request<T>(path, options);
   }
 
@@ -47,12 +45,26 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error(message || `Request failed: ${res.status}`);
   }
 
-  return res.json();
+  // 204 No Content hoặc body rỗng → trả về null thay vì parse JSON
+  const contentLength = res.headers.get("content-length");
+  const contentType = res.headers.get("content-type") ?? "";
+  if (
+    res.status === 204 ||
+    contentLength === "0" ||
+    !contentType.includes("application/json")
+  ) {
+    return null as T;
+  }
+
+  // Clone để check body rỗng trước khi parse
+  const text = await res.text();
+  if (!text || text.trim() === "") return null as T;
+
+  return JSON.parse(text) as T;
 }
 
 export const apiClient = {
-  get: <T>(path: string) =>
-    request<T>(path, { method: "GET" }),
+  get: <T>(path: string) => request<T>(path, { method: "GET" }),
 
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body) }),
@@ -60,6 +72,5 @@ export const apiClient = {
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
 
-  delete: <T>(path: string) =>
-    request<T>(path, { method: "DELETE" }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };

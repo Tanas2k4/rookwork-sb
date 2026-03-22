@@ -8,7 +8,7 @@ import {
   priorityColorMap,
   priorityLabelMap,
 } from "../../../types/project";
-import { MOCK_USERS } from "../../../mocks/board";
+import { useProject } from "../../../hooks/useProject";
 
 interface Props {
   task: Task;
@@ -18,7 +18,6 @@ interface Props {
   onSaveDeadline: (val: string) => void;
 }
 
-// "2024-08-15T14:30" → "15/08/2024 14:30:00"
 function formatDeadline(val: string): string {
   if (!val) return "No deadline";
   const d = new Date(val);
@@ -37,6 +36,8 @@ export function TaskPanelDetails({
   onChangeAssignee,
   onSaveDeadline,
 }: Props) {
+  const { members } = useProject();
+
   const [showStatusDd, setShowStatusDd] = useState(false);
   const [showPriorityDd, setShowPriorityDd] = useState(false);
   const [showAssigneeDd, setShowAssigneeDd] = useState(false);
@@ -48,6 +49,17 @@ export function TaskPanelDetails({
     setShowPriorityDd(false);
     setShowAssigneeDd(false);
   }
+
+  // Convert project members (UserSummary) to UI User format với _uuid cho API
+  const memberUsers = members.map((m) => ({
+    id: 0,
+    email: "",
+    display_name: m.profileName,
+    avt:
+      m.picture ??
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(m.profileName)}&background=7c3aed&color=fff`,
+    _uuid: m.id, // UUID dùng cho assignedToId trong UpdateIssueRequest
+  }));
 
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-5">
@@ -65,9 +77,7 @@ export function TaskPanelDetails({
             }}
             className="flex items-center gap-1.5 text-sm text-gray-700 px-2 py-1 transition"
           >
-            <span
-              className={`w-2 h-2 rounded-full ${statusMap[task.status].dotColor}`}
-            />
+            <span className={`w-2 h-2 rounded-full ${statusMap[task.status].dotColor}`} />
             {statusMap[task.status].label}
             <MdOutlineExpandMore size={16} className="text-gray-400" />
           </button>
@@ -76,15 +86,10 @@ export function TaskPanelDetails({
               {statuses.map((s) => (
                 <button
                   key={s}
-                  onClick={() => {
-                    onChangeStatus(s);
-                    closeAll();
-                  }}
+                  onClick={() => { onChangeStatus(s); closeAll(); }}
                   className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${task.status === s ? "text-purple-700 font-medium" : "text-gray-700"}`}
                 >
-                  <span
-                    className={`w-2 h-2 rounded-full ${statusMap[s].dotColor}`}
-                  />
+                  <span className={`w-2 h-2 rounded-full ${statusMap[s].dotColor}`} />
                   {statusMap[s].label}
                 </button>
               ))}
@@ -123,15 +128,10 @@ export function TaskPanelDetails({
               {priorities.map((p) => (
                 <button
                   key={p}
-                  onClick={() => {
-                    onChangePriority(p);
-                    closeAll();
-                  }}
+                  onClick={() => { onChangePriority(p); closeAll(); }}
                   className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${task.priority === p ? "text-purple-700 font-medium" : "text-gray-700"}`}
                 >
-                  <span
-                    className={`w-2 h-2 rounded-full ${priorityColorMap[p]}`}
-                  />
+                  <span className={`w-2 h-2 rounded-full ${priorityColorMap[p]}`} />
                   {priorityLabelMap[p]}
                 </button>
               ))}
@@ -151,25 +151,16 @@ export function TaskPanelDetails({
             type="datetime-local"
             value={deadlineValue}
             onChange={(e) => setDeadlineValue(e.target.value)}
-            onBlur={() => {
-              onSaveDeadline(deadlineValue);
-              setEditingDeadline(false);
-            }}
+            onBlur={() => { onSaveDeadline(deadlineValue); setEditingDeadline(false); }}
             onKeyDown={(e) => {
               if (e.key === "Escape") setEditingDeadline(false);
-              if (e.key === "Enter") {
-                onSaveDeadline(deadlineValue);
-                setEditingDeadline(false);
-              }
+              if (e.key === "Enter") { onSaveDeadline(deadlineValue); setEditingDeadline(false); }
             }}
             className="text-sm text-gray-700 outline-none border-b border-gray-400 bg-transparent"
           />
         ) : (
           <p
-            onDoubleClick={() => {
-              setDeadlineValue(task.deadline ?? "");
-              setEditingDeadline(true);
-            }}
+            onDoubleClick={() => { setDeadlineValue(task.deadline ?? ""); setEditingDeadline(true); }}
             className="text-sm text-gray-700 cursor-default hover:bg-gray-50 rounded px-2 py-1 -ml-2 transition inline-block"
             title="Double-click to edit"
           >
@@ -194,13 +185,8 @@ export function TaskPanelDetails({
           >
             {task.assigned_to ? (
               <>
-                <img
-                  src={task.assigned_to.avt}
-                  className="w-5 h-5 rounded-full shrink-0"
-                />
-                <span className="truncate">
-                  {task.assigned_to.display_name}
-                </span>
+                <img src={task.assigned_to.avt} className="w-5 h-5 rounded-full shrink-0" />
+                <span className="truncate">{task.assigned_to.display_name}</span>
               </>
             ) : (
               <span className="italic text-gray-400">Unassigned</span>
@@ -210,27 +196,25 @@ export function TaskPanelDetails({
           {showAssigneeDd && (
             <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 w-52">
               <button
-                onClick={() => {
-                  onChangeAssignee(null);
-                  closeAll();
-                }}
+                onClick={() => { onChangeAssignee(null); closeAll(); }}
                 className="w-full text-left px-3 py-1.5 text-sm text-gray-500 italic hover:bg-gray-50"
               >
                 Unassigned
               </button>
-              {MOCK_USERS.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => {
-                    onChangeAssignee(u);
-                    closeAll();
-                  }}
-                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${task.assigned_to?.id === u.id ? "text-purple-700 font-medium" : "text-gray-700"}`}
-                >
-                  <img src={u.avt} className="w-5 h-5 rounded-full shrink-0" />
-                  {u.display_name}
-                </button>
-              ))}
+              {memberUsers.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-gray-400 italic">No members found</p>
+              ) : (
+                memberUsers.map((u, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { onChangeAssignee(u); closeAll(); }}
+                    className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${task.assigned_to?.display_name === u.display_name ? "text-purple-700 font-medium" : "text-gray-700"}`}
+                  >
+                    <img src={u.avt} className="w-5 h-5 rounded-full shrink-0" />
+                    {u.display_name}
+                  </button>
+                ))
+              )}
             </div>
           )}
         </div>

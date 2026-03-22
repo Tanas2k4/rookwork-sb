@@ -4,32 +4,16 @@ import { FaLink } from "react-icons/fa6";
 import { IoAdd, IoClose } from "react-icons/io5";
 import { RiUserAddLine } from "react-icons/ri";
 import { FaTasks, FaBook, FaRocket } from "react-icons/fa";
+import { useProject } from "../hooks/useProject";
+import { issueApi } from "../api/issueApi";
+import type {
+  IssueType,
+  PriorityType,
+  Status as ApiStatus,
+} from "../api/contracts/issue";
 
 type TaskType = "task" | "story" | "epic";
 
-// Mock data for participants
-const Users = [
-  {
-    id: 1,
-    email: "bongbo355@gmail.com",
-    display_name: "Trần Tấn",
-    avt: "https://i.pravatar.cc/150?img=1",
-  },
-  {
-    id: 2,
-    email: "khar34@gmail.com",
-    display_name: "Phạm Hoàng Tuấn Kha",
-    avt: "https://i.pravatar.cc/150?img=2",
-  },
-  {
-    id: 3,
-    email: "nak@gmial.com",
-    display_name: "Nguyễn An Khang",
-    avt: "https://i.pravatar.cc/150?img=3",
-  },
-];
-
-// Configuration for task types
 const TYPE_OPTIONS = [
   {
     value: "task" as const,
@@ -58,15 +42,21 @@ const TYPE_OPTIONS = [
 ] as const;
 
 function ProjectHeader() {
+  const { project, members, projectId, reloadIssues } = useProject();
+
   const [showAddUser, setShowAddUser] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [email, setEmail] = useState("");
   const [selectedType, setSelectedType] = useState<TaskType>("task");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState(""); // datetime-local: "2024-08-15T14:30"
+  const [priority, setPriority] = useState<PriorityType>("MEDIUM");
+  const [status, setStatus] = useState<ApiStatus>("TO_DO");
+  const [assigneeId, setAssigneeId] = useState<string>("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
 
-  // Prevent body scroll when modal is open
   useEffect(() => {
     document.body.style.overflow = showCreateTask ? "hidden" : "unset";
     return () => {
@@ -83,16 +73,37 @@ function ProjectHeader() {
     }
   };
 
-  const handleCreateTask = (e: React.FormEvent) => {
+  const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (taskTitle.trim()) {
-      console.log("Creating:", {
-        type: selectedType,
-        title: taskTitle,
-        description: taskDescription,
-        dueDate,
+    if (!taskTitle.trim() || !projectId) return;
+    setCreating(true);
+    setCreateError("");
+    try {
+      // LocalDateTime "2024-08-15T14:30:00"
+      const deadlineISO = dueDate ? `${dueDate}:00` : undefined;
+
+      const created = await issueApi.create(projectId, {
+        issueName: taskTitle.trim(),
+        issueType: selectedType.toUpperCase() as IssueType,
+        priority,
+        description: taskDescription.trim() || undefined,
+        deadline: deadlineISO,
+        status,
       });
+
+      if (assigneeId && created.id) {
+        await issueApi.update(projectId, created.id, {
+          assignedToId: assigneeId,
+        });
+      }
+
       resetTaskForm();
+      reloadIssues();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to create task";
+      setCreateError(msg);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -101,19 +112,20 @@ function ProjectHeader() {
     setTaskDescription("");
     setSelectedType("task");
     setDueDate("");
+    setPriority("MEDIUM");
+    setStatus("TO_DO");
+    setAssigneeId("");
+    setCreateError("");
     setShowCreateTask(false);
-  };
-
-  const closeAddUser = () => {
-    setShowAddUser(false);
-    setEmail("");
   };
 
   return (
     <>
       <div className="py-3 px-8 bg-white">
         <div className="flex flex-row items-center gap-3 mb-3">
-          <h1 className="text-5xl font-bold text-gray-800">Mobile App</h1>
+          <h1 className="text-5xl font-bold text-gray-800">
+            {project?.projectName ?? "Project"}
+          </h1>
           <button className="text-purple-700 p-1.5 bg-purple-100 hover:bg-purple-200 rounded-lg transition">
             <ImPencil size={14} />
           </button>
@@ -123,7 +135,6 @@ function ProjectHeader() {
         </div>
 
         <div className="flex gap-3 items-center">
-          {/* Create task */}
           <button
             onClick={() => setShowCreateTask(true)}
             className="flex flex-row items-center gap-1.5 px-3 py-1.5 text-sm
@@ -133,29 +144,34 @@ function ProjectHeader() {
             <IoAdd size={18} />
           </button>
 
-          {/* Add user to project */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowAddUser(!showAddUser)}
               className={`flex items-center justify-center w-8 h-8 text-gray-700 
-            border border-gray-500 hover:bg-gray-200 rounded-full transition ${
-              showAddUser ? "bg-gray-100" : ""
-            }`}
+              border border-gray-500 hover:bg-gray-200 rounded-full transition ${showAddUser ? "bg-gray-100" : ""}`}
             >
               <RiUserAddLine size={18} />
             </button>
-            {/* Participants */}
+
             <div className="flex -space-x-2">
-              {Users.map((user) => (
-                <img
-                  key={user.id}
-                  src={user.avt}
-                  alt={user.display_name}
-                  className="w-8 h-8 rounded-full border-2 border-white"
-                  title={user.display_name}
-                />
-              ))}
+              {members.length > 0 ? (
+                members.map((member) => (
+                  <img
+                    key={member.id}
+                    src={
+                      member.picture ??
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(member.profileName)}&background=7c3aed&color=fff`
+                    }
+                    alt={member.profileName}
+                    className="w-8 h-8 rounded-full border-2 border-white"
+                    title={member.profileName}
+                  />
+                ))
+              ) : (
+                <span className="text-xs text-gray-400 italic">No members</span>
+              )}
             </div>
+
             <div
               className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ease-in-out ${
                 showAddUser ? "w-80 opacity-100" : "w-0 opacity-0"
@@ -167,7 +183,7 @@ function ProjectHeader() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@email.com"
                 className="w-full px-3 py-1.5 text-sm border border-gray-500 rounded-md 
-                focus:outline-none focus:ring-1 focus:ring-inset focus:border-none focus:ring-purple-500 transition"
+                focus:outline-none focus:ring-1 focus:ring-purple-500 transition"
                 autoFocus={showAddUser}
               />
               <button
@@ -178,9 +194,11 @@ function ProjectHeader() {
                 Send
               </button>
               <button
-                onClick={closeAddUser}
-                className="p-1.5 text-gray-500 hover:text-gray-600 bg-gray-200 hover:bg-gray-200
-                 rounded-full transition"
+                onClick={() => {
+                  setShowAddUser(false);
+                  setEmail("");
+                }}
+                className="p-1.5 text-gray-500 hover:text-gray-600 bg-gray-200 rounded-full transition"
               >
                 <IoClose size={18} />
               </button>
@@ -198,7 +216,6 @@ function ProjectHeader() {
           />
 
           <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800">
                 Create new Item
@@ -211,13 +228,12 @@ function ProjectHeader() {
               </button>
             </div>
 
-            {/* Body */}
             <form
               onSubmit={handleCreateTask}
               className="flex-1 overflow-y-auto"
             >
               <div className="px-6 py-5 space-y-5">
-                {/* Type Selection */}
+                {/* Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Type
@@ -271,10 +287,9 @@ function ProjectHeader() {
                     value={taskDescription}
                     onChange={(e) => setTaskDescription(e.target.value)}
                     placeholder="Add a description..."
-                    rows={6}
+                    rows={4}
                     className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg 
-                      focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-transparent
-                      resize-none"
+                      focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-transparent resize-none"
                   />
                 </div>
 
@@ -285,13 +300,17 @@ function ProjectHeader() {
                       Assignee
                     </label>
                     <select
+                      value={assigneeId}
+                      onChange={(e) => setAssigneeId(e.target.value)}
                       className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg 
                       focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-transparent"
                     >
                       <option value="">Unassigned</option>
-                      <option value="1">Trần Tấn</option>
-                      <option value="2">Nguyễn Văn A</option>
-                      <option value="3">Lê Thị B</option>
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.profileName}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -300,13 +319,17 @@ function ProjectHeader() {
                       Priority
                     </label>
                     <select
+                      value={priority}
+                      onChange={(e) =>
+                        setPriority(e.target.value as PriorityType)
+                      }
                       className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg 
                       focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="urgent">Urgent</option>
+                      <option value="LOW">Low</option>
+                      <option value="MEDIUM">Medium</option>
+                      <option value="HIGH">High</option>
+                      <option value="URGENT">Urgent</option>
                     </select>
                   </div>
                 </div>
@@ -331,33 +354,39 @@ function ProjectHeader() {
                       Status
                     </label>
                     <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as ApiStatus)}
                       className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg 
                       focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     >
-                      <option value="to_do">To Do</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="done">Done</option>
+                      <option value="TO_DO">To Do</option>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="DONE">Done</option>
                     </select>
                   </div>
                 </div>
+
+                {createError && (
+                  <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">
+                    {createError}
+                  </p>
+                )}
               </div>
 
-              {/* Footer */}
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
                 <button
                   type="button"
                   onClick={resetTaskForm}
-                  className="px-4 py-2 text-sm font-medium border border-gray-500 text-gray-700 
-                    hover:bg-gray-200 rounded-lg transition"
+                  className="px-4 py-2 text-sm font-medium border border-gray-500 text-gray-700 hover:bg-gray-200 rounded-lg transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white 
-                    bg-purple-900 hover:bg-purple-800 rounded-lg transition"
+                  disabled={creating}
+                  className="px-4 py-2 text-sm font-medium text-white bg-purple-900 hover:bg-purple-800 disabled:opacity-60 rounded-lg transition"
                 >
-                  Create {selectedType}
+                  {creating ? "Creating..." : `Create ${selectedType}`}
                 </button>
               </div>
             </form>

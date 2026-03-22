@@ -1,0 +1,240 @@
+import { useState } from "react";
+import { MdOutlineExpandMore } from "react-icons/md";
+import type { Task, Status, Priority, User } from "../../../types/project";
+import {
+  statuses,
+  statusMap,
+  priorities,
+  priorityColorMap,
+  priorityLabelMap,
+} from "../../../types/project";
+import { MOCK_USERS } from "../../../mocks/board";
+
+interface Props {
+  task: Task;
+  onChangeStatus: (s: Status) => void;
+  onChangePriority: (p: Priority) => void;
+  onChangeAssignee: (u: User | null) => void;
+  onSaveDeadline: (val: string) => void;
+}
+
+// "2024-08-15T14:30" → "15/08/2024 14:30:00"
+function formatDeadline(val: string): string {
+  if (!val) return "No deadline";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return val;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+}
+
+export function TaskPanelDetails({
+  task,
+  onChangeStatus,
+  onChangePriority,
+  onChangeAssignee,
+  onSaveDeadline,
+}: Props) {
+  const [showStatusDd, setShowStatusDd] = useState(false);
+  const [showPriorityDd, setShowPriorityDd] = useState(false);
+  const [showAssigneeDd, setShowAssigneeDd] = useState(false);
+  const [editingDeadline, setEditingDeadline] = useState(false);
+  const [deadlineValue, setDeadlineValue] = useState(task.deadline ?? "");
+
+  function closeAll() {
+    setShowStatusDd(false);
+    setShowPriorityDd(false);
+    setShowAssigneeDd(false);
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+      {/* Status */}
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Status
+        </p>
+        <div className="relative inline-block border border-gray-400 px-2 rounded-md">
+          <button
+            onClick={() => {
+              setShowStatusDd((p) => !p);
+              setShowPriorityDd(false);
+              setShowAssigneeDd(false);
+            }}
+            className="flex items-center gap-1.5 text-sm text-gray-700 px-2 py-1 transition"
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${statusMap[task.status].dotColor}`}
+            />
+            {statusMap[task.status].label}
+            <MdOutlineExpandMore size={16} className="text-gray-400" />
+          </button>
+          {showStatusDd && (
+            <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 w-40">
+              {statuses.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => {
+                    onChangeStatus(s);
+                    closeAll();
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${task.status === s ? "text-purple-700 font-medium" : "text-gray-700"}`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${statusMap[s].dotColor}`}
+                  />
+                  {statusMap[s].label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Priority */}
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Priority
+        </p>
+        <div className="relative inline-block border border-gray-400 px-2 rounded-md">
+          <button
+            onClick={() => {
+              setShowPriorityDd((p) => !p);
+              setShowStatusDd(false);
+              setShowAssigneeDd(false);
+            }}
+            className="flex items-center gap-2 text-sm text-gray-700 px-2 py-1 transition"
+          >
+            {priorityLabelMap[task.priority]}
+            <div className="flex gap-0.5 h-1.5 w-14">
+              {priorities.map((p, i) => (
+                <div
+                  key={p}
+                  className={`flex-1 rounded-sm ${i <= priorities.indexOf(task.priority) ? priorityColorMap[p] : "bg-gray-200"}`}
+                />
+              ))}
+            </div>
+            <MdOutlineExpandMore size={16} className="text-gray-400" />
+          </button>
+          {showPriorityDd && (
+            <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 w-40">
+              {priorities.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => {
+                    onChangePriority(p);
+                    closeAll();
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${task.priority === p ? "text-purple-700 font-medium" : "text-gray-700"}`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${priorityColorMap[p]}`}
+                  />
+                  {priorityLabelMap[p]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Deadline */}
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Deadline
+        </p>
+        {editingDeadline ? (
+          <input
+            autoFocus
+            type="datetime-local"
+            value={deadlineValue}
+            onChange={(e) => setDeadlineValue(e.target.value)}
+            onBlur={() => {
+              onSaveDeadline(deadlineValue);
+              setEditingDeadline(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setEditingDeadline(false);
+              if (e.key === "Enter") {
+                onSaveDeadline(deadlineValue);
+                setEditingDeadline(false);
+              }
+            }}
+            className="text-sm text-gray-700 outline-none border-b border-gray-400 bg-transparent"
+          />
+        ) : (
+          <p
+            onDoubleClick={() => {
+              setDeadlineValue(task.deadline ?? "");
+              setEditingDeadline(true);
+            }}
+            className="text-sm text-gray-700 cursor-default hover:bg-gray-50 rounded px-2 py-1 -ml-2 transition inline-block"
+            title="Double-click to edit"
+          >
+            {formatDeadline(task.deadline ?? "")}
+          </p>
+        )}
+      </div>
+
+      {/* Assignee */}
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Assigned To
+        </p>
+        <div className="relative inline-block border border-gray-400 px-2 rounded-md">
+          <button
+            onClick={() => {
+              setShowAssigneeDd((p) => !p);
+              setShowStatusDd(false);
+              setShowPriorityDd(false);
+            }}
+            className="flex items-center gap-2 text-sm text-gray-700 px-2 py-1 transition max-w-[160px]"
+          >
+            {task.assigned_to ? (
+              <>
+                <img
+                  src={task.assigned_to.avt}
+                  className="w-5 h-5 rounded-full shrink-0"
+                />
+                <span className="truncate">
+                  {task.assigned_to.display_name}
+                </span>
+              </>
+            ) : (
+              <span className="italic text-gray-400">Unassigned</span>
+            )}
+            <MdOutlineExpandMore size={16} className="text-gray-400 shrink-0" />
+          </button>
+          {showAssigneeDd && (
+            <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 w-52">
+              <button
+                onClick={() => {
+                  onChangeAssignee(null);
+                  closeAll();
+                }}
+                className="w-full text-left px-3 py-1.5 text-sm text-gray-500 italic hover:bg-gray-50"
+              >
+                Unassigned
+              </button>
+              {MOCK_USERS.map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => {
+                    onChangeAssignee(u);
+                    closeAll();
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${task.assigned_to?.id === u.id ? "text-purple-700 font-medium" : "text-gray-700"}`}
+                >
+                  <img src={u.avt} className="w-5 h-5 rounded-full shrink-0" />
+                  {u.display_name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

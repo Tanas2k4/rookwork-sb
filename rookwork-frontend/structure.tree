@@ -1,0 +1,117 @@
+├── .github
+│  └── appmod
+│    └── appcat
+├── .gitignore
+├── .npmrc
+├── browser-app
+│  ├── .gitignore
+│  ├── eslint.config.js
+│  ├── index.html
+│  ├── package-lock.json
+│  ├── package.json
+│  ├── postcss.config.js
+│  ├── public
+│  │  └── rookwork-title.png
+│  ├── README.md
+│  ├── src
+│  │  ├── api
+│  │  │  └── contracts.ts
+│  │  ├── App.tsx
+│  │  ├── assets
+│  │  │  ├── image.png
+│  │  │  ├── login-background.jpg
+│  │  │  ├── logo-no-background.png
+│  │  │  ├── preload.svg
+│  │  │  └── view.png
+│  │  ├── calendar
+│  │  │  ├── Calendar.tsx
+│  │  │  ├── ItemDetail.tsx
+│  │  │  └── MiniCalendar.tsx
+│  │  ├── components
+│  │  │  ├── common
+│  │  │  │  ├── Loading.tsx
+│  │  │  │  └── ToastContainer.tsx
+│  │  │  └── layout
+│  │  │    ├── Header.tsx
+│  │  │    ├── shared
+│  │  │    │  └── CreateProjectPanel.tsx
+│  │  │    ├── Sidebar.tsx
+│  │  │    └── Titlebar.tsx
+│  │  ├── doashbard
+│  │  │  ├── ActiveProjects.tsx
+│  │  │  └── WorkingHoursChart.tsx
+│  │  ├── hooks
+│  │  │  ├── useBoard.ts
+│  │  │  └── useListView.ts
+│  │  ├── index.css
+│  │  ├── main.tsx
+│  │  ├── mocks
+│  │  │  ├── adapters.ts
+│  │  │  ├── board.ts
+│  │  │  ├── db.ts
+│  │  │  └── overview.ts
+│  │  ├── navigation
+│  │  │  └── ProjectTabs.tsx
+│  │  ├── pages
+│  │  │  ├── DashboardPage.tsx
+│  │  │  ├── IssueDetailPage.tsx
+│  │  │  ├── Login.tsx
+│  │  │  ├── MyIssuesPage.tsx
+│  │  │  ├── ProjectPage.tsx
+│  │  │  └── Register.tsx
+│  │  ├── project
+│  │  │  ├── board
+│  │  │  │  ├── AddTaskForm.tsx
+│  │  │  │  ├── BoardCard.tsx
+│  │  │  │  ├── BoardColumn.tsx
+│  │  │  │  ├── FilterMenu.tsx
+│  │  │  │  └── TaskPanel
+│  │  │  │    ├── ActivitySection.tsx
+│  │  │  │    ├── ChildrenSection.tsx
+│  │  │  │    ├── index.tsx
+│  │  │  │    ├── SubtasksSection.tsx
+│  │  │  │    ├── TaskPanelDetails.tsx
+│  │  │  │    └── TaskPanelHeader.tsx
+│  │  │  ├── BoardView.tsx
+│  │  │  ├── list
+│  │  │  │  ├── ListDropdowns.tsx
+│  │  │  │  └── ListFilterPanel.tsx
+│  │  │  ├── ListView.tsx
+│  │  │  ├── overview
+│  │  │  │  ├── Deadlinetimeline.tsx
+│  │  │  │  ├── Milestones.tsx
+│  │  │  │  ├── Overallprogress.tsx
+│  │  │  │  ├── Projectcard.tsx
+│  │  │  │  ├── Recentactivity.tsx
+│  │  │  │  ├── Tasksnapshot.tsx
+│  │  │  │  └── Workloadsection.tsx
+│  │  │  ├── OverView.tsx
+│  │  │  ├── ProjectHeader.tsx
+│  │  │  ├── timeline
+│  │  │  │  ├── GanttBar.tsx
+│  │  │  │  ├── TaskListPanel.tsx
+│  │  │  │  └── timelineUtils.tsx
+│  │  │  └── TimelineView.tsx
+│  │  ├── types
+│  │  │  ├── calendar.ts
+│  │  │  ├── electron.d.ts
+│  │  │  └── project.ts
+│  │  ├── user
+│  │  │  └── CalendarView.tsx
+│  │  └── utils
+│  │    └── date.ts
+│  ├── tailwind.config.ts
+│  ├── tsconfig.app.json
+│  ├── tsconfig.json
+│  ├── tsconfig.node.json
+│  └── vite.config.ts
+├── electron-app
+│  ├── main.js
+│  ├── package-lock.json
+│  ├── package.json
+│  └── preload.js
+├── package-lock.json
+├── package.json
+├── readme.md
+├── structure.tree
+└── yarn.lock

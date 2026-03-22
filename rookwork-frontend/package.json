@@ -1,0 +1,37 @@
+{
+  "name": "rookwork-frontend",
+  "version": "0.0.1",
+  "private": true,
+  "description": "frontend for rookwork",
+  "author": "warmdrobe",
+  "license": "ISC",
+  "workspaces": [
+    "browser-app",
+    "electron-app"
+  ],
+  "scripts": {
+    "start:browser": "yarn workspace browser-app dev",
+    "build:browser": "yarn workspace browser-app build",
+    "start:electron": "concurrently \"yarn workspace browser-app dev\" \"wait-on http://localhost:5173 && yarn workspace electron-app dev\"",
+    "build:electron": "yarn workspace electron-app build",
+    "dev": "concurrently \"yarn start:browser\" \"wait-on http://localhost:5173 && yarn start:electron\"",
+    "build": "yarn build:browser && yarn build:electron"
+  },
+  "devDependencies": {
+    "@types/nprogress": "^0.2.3",
+    "concurrently": "^8.2.2",
+    "vite-plugin-svgr": "^4.5.0",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "motion": "^12.29.2",
+    "nprogress": "^0.2.0",
+    "react-day-picker": "^9.13.2",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-grid-layout": "^2.2.2",
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^7.13.0",
+    "recharts": "^3.8.0"
+  }
+}

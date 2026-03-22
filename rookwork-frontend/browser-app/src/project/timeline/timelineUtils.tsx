@@ -1,0 +1,176 @@
+import type { Task, TaskType, TaskStatus } from "../../types/project";
+import { addDays, diffDays } from "../../utils/date";
+
+// Types
+export type ViewMode = "day" | "week" | "month";
+
+export interface Assignee {
+  id: string;
+  name: string;
+  avatar?: string;
+  color: string;
+}
+
+export interface GanttTask {
+  id: string;
+  name: string;
+  start: Date;
+  end: Date;
+  progress: number;
+  color?: string;
+  assignees?: Assignee[];
+  group?: string;
+  status?: "todo" | "in_progress" | "done";
+  type?: TaskType;
+}
+
+// Constants
+export const COL_WIDTH_DAY = 36;
+export const COL_WIDTH_WEEK = 120;
+export const COL_WIDTH_MONTH = 200;
+export const ROW_HEIGHT = 52;
+export const LEFT_PANEL_W = 280;
+
+export const STATUS_CONFIG: Record<
+  "todo" | "in_progress" | "done",
+  { label: string; dot: string }
+> = {
+  todo: { label: "To Do", dot: "bg-slate-400" },
+  in_progress: { label: "In Progress", dot: "bg-blue-400" },
+  done: { label: "Done", dot: "bg-emerald-400" },
+};
+
+// Adapter
+const TYPE_COLOR: Record<TaskType, string> = {
+  task: "#6366f1",
+  story: "#10b981",
+  epic: "#f59e0b",
+};
+
+const USER_COLORS = [
+  "#f472b6",
+  "#60a5fa",
+  "#34d399",
+  "#fb923c",
+  "#a78bfa",
+  "#f87171",
+];
+
+function statusToGantt(s: TaskStatus): GanttTask["status"] {
+  if (s === "to_do") return "todo";
+  if (s === "in_progress") return "in_progress";
+  return "done";
+}
+
+function calcProgress(task: Task): number {
+  if (task.status === "done") return 100;
+  if (task.subtasks.length === 0) return task.status === "in_progress" ? 40 : 0;
+  return Math.round(
+    (task.subtasks.filter((s) => s.done).length / task.subtasks.length) * 100,
+  );
+}
+
+function inferStart(task: Task): Date {
+  const deadline = task.deadline
+    ? new Date(task.deadline)
+    : new Date("2026-03-15");
+  const duration: Record<TaskType, number> = { task: 7, story: 14, epic: 28 };
+  const d = new Date(deadline);
+  d.setDate(d.getDate() - duration[task.type]);
+  return d;
+}
+
+export function taskToGantt(task: Task): GanttTask {
+  return {
+    id: String(task.id),
+    name: task.title,
+    start: inferStart(task),
+    end: task.deadline ? new Date(task.deadline) : new Date("2026-03-15"),
+    progress: calcProgress(task),
+    color: TYPE_COLOR[task.type],
+    status: statusToGantt(task.status),
+    group:
+      task.type === "epic" ? "Epic" : task.type === "story" ? "Story" : "Task",
+    type: task.type,
+    assignees: task.assigned_to
+      ? [
+          {
+            id: String(task.assigned_to.id),
+            name: task.assigned_to.display_name,
+            avatar: task.assigned_to.avt,
+            color: USER_COLORS[(task.assigned_to.id - 1) % USER_COLORS.length],
+          },
+        ]
+      : [],
+  };
+}
+
+// Column builder
+function getWeekNumber(d: Date): number {
+  const date = new Date(d.getTime());
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
+  const week1 = new Date(date.getFullYear(), 0, 4);
+  return (
+    1 +
+    Math.round(
+      ((date.getTime() - week1.getTime()) / 86400000 -
+        3 +
+        ((week1.getDay() + 6) % 7)) /
+        7,
+    )
+  );
+}
+
+export function buildTimelineColumns(
+  start: Date,
+  totalDays: number,
+  mode: ViewMode,
+): { label: string; start: Date; days: number }[] {
+  const cols: { label: string; start: Date; days: number }[] = [];
+  let cursor = new Date(start);
+
+  if (mode === "day") {
+    for (let i = 0; i < totalDays; i++) {
+      cols.push({
+        label: cursor.toLocaleDateString("en-US", {
+          weekday: "short",
+          day: "numeric",
+        }),
+        start: new Date(cursor),
+        days: 1,
+      });
+      cursor = addDays(cursor, 1);
+    }
+  } else if (mode === "week") {
+    let weekStart = new Date(cursor);
+    while (diffDays(start, cursor) < totalDays) {
+      const days = Math.min(7, totalDays - diffDays(start, cursor));
+      cols.push({
+        label: `W${getWeekNumber(weekStart)} ${weekStart.toLocaleDateString("en-US", { month: "short" })}`,
+        start: new Date(cursor),
+        days,
+      });
+      cursor = addDays(cursor, 7);
+      weekStart = new Date(cursor);
+    }
+  } else {
+    while (cursor < addDays(start, totalDays)) {
+      const year = cursor.getFullYear();
+      const month = cursor.getMonth();
+      const daysLeft =
+        new Date(year, month + 1, 0).getDate() - cursor.getDate() + 1;
+      const days = Math.min(daysLeft, totalDays - diffDays(start, cursor));
+      cols.push({
+        label: cursor.toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        }),
+        start: new Date(cursor),
+        days,
+      });
+      cursor = new Date(year, month + 1, 1);
+    }
+  }
+  return cols;
+}

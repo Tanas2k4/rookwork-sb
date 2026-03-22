@@ -1,0 +1,180 @@
+import { useState } from "react";
+import LoginBackground from "../assets/login-background.jpg";
+import { IoIosPersonAdd } from "react-icons/io";
+import { useNavigate } from "react-router-dom";
+import { LuUser } from "react-icons/lu";
+import { IoMailOutline } from "react-icons/io5";
+import { TbLock } from "react-icons/tb";
+
+function Register() {
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const navigate = useNavigate();
+
+  const handleRegister = () => {
+    if (!email || !password || !confirm) {
+      setSuccess("");
+      setError("Please fill all fields");
+      return;
+    }
+
+    if (password !== confirm) {
+      setSuccess("");
+      setError("Passwords do not match");
+      return;
+    }
+
+    localStorage.setItem("mockUser", JSON.stringify({ email, password }));
+    setError("");
+    setSuccess("Register success! You can login now.");
+  };
+
+  return (
+    <div
+      className="font-heading flex h-screen items-center justify-center bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: `url(${LoginBackground})` }}
+    >
+      <div className="w-96  bg-white p-6 opacity-90">
+        <h1 className="mb-4 text-2xl text-gray-800 font-semibold font-mono text-center tracking-widest">
+          REGISTER
+        </h1>
+
+        {/* USERNAME */}
+        <div className="py-2">
+          <div
+            className="
+            group flex items-center gap-3 rounded-lg bg-gray-100 px-3 py-2.5
+            border border-transparent
+            focus-within:border-purple-600
+            focus-within:ring-1 focus-within:ring-purple-600
+            transition-all duration-200"
+          >
+            <LuUser
+              className="
+            text-gray-400 text-[16px]
+            group-focus-within:text-purple-600
+            transition-colors"
+            />
+            <input
+              className="w-full bg-transparent text-[14px] outline-none"
+              placeholder="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* EMAIL */}
+        <div className="py-2">
+          <div
+            className="
+            group flex items-center gap-3 rounded-lg bg-gray-100 px-3 py-2.5
+            border border-transparent
+            focus-within:border-purple-600
+            focus-within:ring-1 focus-within:ring-purple-600
+            transition-all duration-200"
+          >
+            <IoMailOutline
+              className="
+            text-gray-400 text-[16px]
+            group-focus-within:text-purple-600
+            transition-colors"
+            />
+            <input
+              className="w-full bg-transparent text-[14px] outline-none"
+              placeholder="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* PASSWORD */}
+        <div className="py-2">
+          <div
+            className="
+            group flex items-center gap-3 rounded-lg bg-gray-100 px-3 py-2.5
+            border border-transparent
+            focus-within:border-purple-600
+            focus-within:ring-1 focus-within:ring-purple-600
+            transition-all duration-200"
+          >
+            <TbLock
+              className="
+            text-gray-400 text-[16px]
+            group-focus-within:text-purple-600
+            transition-colors"
+            />
+            <input
+              type="password"
+              className="w-full bg-transparent text-[14px] outline-none"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* CONFIRM PASSWORD */}
+        <div className="py-2">
+          <div
+            className="
+            group flex items-center gap-3 rounded-lg bg-gray-100 px-3 py-2.5
+            border border-transparent
+            focus-within:border-purple-600
+            focus-within:ring-1 focus-within:ring-purple-600
+            transition-all duration-200"
+          >
+            <TbLock
+              className="
+            text-gray-400 text-[16px]
+            group-focus-within:text-purple-600
+            transition-colors"
+            />
+            <input
+              type="password"
+              className="w-full bg-transparent text-[14px] outline-none"
+              placeholder="confirm password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* BACK TO LOGIN */}
+        <div className="mt-3 flex justify-center">
+          <button
+            onClick={() => navigate("/login")}
+            className="text-purple-900 text-xs font-bold tracking-[4px] hover:text-purple-700"
+          >
+            BACK TO LOGIN
+          </button>
+        </div>
+
+        {/* ERROR / SUCCESS */}
+        <div className="h-5 mt-2 flex items-center justify-center">
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          {!error && success && (
+            <p className="text-sm text-green-600">{success}</p>
+          )}
+        </div>
+
+        {/* REGISTER BUTTON */}
+        <div className="pt-6">
+          <button
+            className="w-full flex items-center justify-center bg-purple-900 py-2.5 text-white text-xs tracking-[4px] rounded-lg hover:bg-purple-800"
+            onClick={handleRegister}
+          >
+            <IoIosPersonAdd size={22} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Register;

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 
@@ -11,18 +11,37 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import DashboardPage from "./pages/DashboardPage";
 import ProjectPage from "./pages/ProjectPage";
-
 import OverView from "./project/OverView";
 import BoardView from "./project/BoardView";
 import TimelineView from "./project/TimelineView";
 import ListView from "./project/ListView";
 import Loading from "./components/common/Loading";
-import MyIssuesPage    from "./pages/MyIssuesPage";
+import MyIssuesPage from "./pages/MyIssuesPage";
 import IssueDetailPage from "./pages/IssueDetailPage";
+import { projectApi } from "./api/projectApi";
+import { userApi } from "./api/userApi";
+import { tokenStorage } from "./api/tokenStorage";
+import { toProjectUI, type ProjectUI } from "./api/contracts/projectUI";
+import type { ProjectResponse } from "./api/contracts";
+
 function App() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(() => !!tokenStorage.getAccess());
   const [sidebar, setSidebar] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [projects, setProjects] = useState<ProjectUI[]>([]);
+  const [profileName, setProfileName] = useState("");  // ← thêm
+
+  useEffect(() => {
+    if (!loggedIn) return;
+
+    Promise.all([
+      userApi.getMe(),
+      projectApi.getAll(),
+    ]).then(([user, projectsRes]) => {
+      setProfileName(user.profileName);
+      setProjects(projectsRes.map((p, i) => toProjectUI(p, i)));
+    }).catch(console.error);
+  }, [loggedIn]);
 
   const handleLoginSuccess = () => {
     setIsTransitioning(true);
@@ -32,9 +51,19 @@ function App() {
     }, 3000);
   };
 
-  if (isTransitioning) {
-    return <Loading fullScreen />;
-  }
+  const handleLogout = () => {
+    tokenStorage.clear();
+    setLoggedIn(false);
+    setProjects([]);
+    setProfileName("");  // ← reset
+  };
+
+  const handleProjectCreated = (newProject: ProjectResponse) => {
+    setProjects((prev) => [...prev, toProjectUI(newProject, prev.length)]);
+  };
+
+  if (isTransitioning) return <Loading fullScreen />;
+
   return (
     <DndProvider backend={HTML5Backend}>
       <BrowserRouter>
@@ -43,10 +72,7 @@ function App() {
 
           {!loggedIn ? (
             <Routes>
-              <Route
-                path="/login"
-                element={<Login onSuccess={handleLoginSuccess} />}
-              />
+              <Route path="/login" element={<Login onSuccess={handleLoginSuccess} />} />
               <Route path="/register" element={<Register />} />
               <Route path="*" element={<Navigate to="/login" />} />
             </Routes>
@@ -54,39 +80,42 @@ function App() {
             <>
               <Header
                 setSidebar={setSidebar}
-                onLogout={() => setLoggedIn(false)}
+                displayName={profileName}
+                onLogout={handleLogout}
+                onProjectCreated={handleProjectCreated}
               />
 
               <div className="flex flex-1 overflow-hidden">
-                <Sidebar sidebar={sidebar} setSidebar={setSidebar} />
+                <Sidebar
+                  sidebar={sidebar}
+                  setSidebar={setSidebar}
+                  projects={projects}
+                />
 
                 <main className="flex-1 overflow-auto bg-gray-50">
                   <Routes>
-                    {/* DASHBOARD HOME */}
-                    <Route path="/dashboard" element={<DashboardPage />} />
-
-                    {/* PROJECT */}
                     <Route
-                      path="/projects/:projectKey"
-                      element={<ProjectPage />}
-                    >
-                      <Route
-                        index
-                        element={<Navigate to="overview" replace />}
-                      />
+                      path="/dashboard"
+                      element={
+                        <DashboardPage
+                          projects={projects}
+                          profileName={profileName}  // ← thêm
+                        />
+                      }
+                    />
+
+                    <Route path="/projects/:projectKey" element={<ProjectPage />}>
+                      <Route index element={<Navigate to="overview" replace />} />
                       <Route path="overview" element={<OverView />} />
                       <Route path="board" element={<BoardView />} />
                       <Route path="timeline" element={<TimelineView />} />
                       <Route path="list" element={<ListView />} />
                     </Route>
 
-                    {/* CALENDAR */}
                     <Route path="/calendars" element={<CalendarView />} />
-
-                    {/* FALLBACK */}
-                    <Route path="*" element={<Navigate to="/dashboard" />} />
-                    <Route path="/my-issues"       element={<MyIssuesPage />} />
+                    <Route path="/my-issues" element={<MyIssuesPage />} />
                     <Route path="/issues/:issueId" element={<IssueDetailPage />} />
+                    <Route path="*" element={<Navigate to="/dashboard" />} />
                   </Routes>
                 </main>
               </div>

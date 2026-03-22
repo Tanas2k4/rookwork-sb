@@ -1,9 +1,7 @@
-├── .github
-│  └── appmod
-│    └── appcat
 ├── .gitignore
 ├── .npmrc
 ├── browser-app
+│  ├── .env
 │  ├── .gitignore
 │  ├── eslint.config.js
 │  ├── index.html
@@ -15,13 +13,28 @@
 │  ├── README.md
 │  ├── src
 │  │  ├── api
-│  │  │  └── contracts.ts
+│  │  │  ├── apiClient.ts
+│  │  │  ├── authApi.ts
+│  │  │  ├── contracts
+│  │  │  │  ├── auth.ts
+│  │  │  │  ├── contracts.ts
+│  │  │  │  ├── index.ts
+│  │  │  │  ├── issue.ts
+│  │  │  │  ├── project.ts
+│  │  │  │  ├── projectUI.ts
+│  │  │  │  └── worklog.ts
+│  │  │  ├── issueApi.ts
+│  │  │  ├── projectApi.ts
+│  │  │  ├── tokenStorage.ts
+│  │  │  ├── userApi.ts
+│  │  │  └── workLogApi.ts
 │  │  ├── App.tsx
 │  │  ├── assets
 │  │  │  ├── image.png
 │  │  │  ├── login-background.jpg
 │  │  │  ├── logo-no-background.png
 │  │  │  ├── preload.svg
+│  │  │  ├── project-background.jpg
 │  │  │  └── view.png
 │  │  ├── calendar
 │  │  │  ├── Calendar.tsx

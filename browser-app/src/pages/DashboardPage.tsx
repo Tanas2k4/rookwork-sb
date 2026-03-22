@@ -1,128 +1,41 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import WorkingHoursChart from "../doashbard/WorkingHoursChart";
 import ActiveProjects from "../doashbard/ActiveProjects";
-import { RiCheckLine, RiTrophyLine } from "react-icons/ri";
+import { type ProjectUI } from "../api/contracts/projectUI";
+import { RiCheckLine } from "react-icons/ri";
 import Image from "../assets/image.png";
-import { MOCK_TASKS, MOCK_USERS, CURRENT_USER } from "../mocks/board";
 import type { TaskPriority, TaskStatus } from "../types/project";
 import MiniCalendar from "../calendar/MiniCalendar";
+import { issueApi } from "../api/issueApi";
+import type { IssueResponse } from "../api/contracts/issue";
 
-//  Types 
-interface Project {
-  id: number;
-  name: string;
-  category: string;
-  date: string;
-  progress: number;
-  accentColor: string;
-  members: { avt: string; display_name: string }[];
-  deadline: string;
-  daysLeft: number;
+// ── Helpers ────────────────────────────────────────────────
+const PRIORITY_COLOR: Record<TaskPriority, string> = {
+  low: "#22c55e", medium: "#f59e0b", high: "#f43f5e", urgent: "#7c3aed",
+};
+const STATUS_LABEL: Record<TaskStatus, string> = {
+  to_do: "To Do", in_progress: "In Progress", done: "Done",
+};
+const STATUS_COLOR: Record<TaskStatus, string> = {
+  to_do: "#94a3b8", in_progress: "#7c3aed", done: "#22c55e",
+};
+
+function toTaskStatus(s: string | null): TaskStatus {
+  const map: Record<string, TaskStatus> = {
+    TO_DO: "to_do", IN_PROGRESS: "in_progress", DONE: "done",
+  };
+  return map[s ?? ""] ?? "to_do";
 }
 
-//  Constants 
-const MOCK_NOW = new Date(2026, 2, 8);
+function toTaskPriority(p: string | null): TaskPriority {
+  const map: Record<string, TaskPriority> = {
+    LOW: "low", MEDIUM: "medium", HIGH: "high", URGENT: "urgent",
+  };
+  return map[p ?? ""] ?? "low";
+}
 
-const MOCK_PROJECTS: Project[] = [
-  {
-    id: 1,
-    name: "Mobile Application",
-    category: "Design & Development",
-    date: "Mar 5, 2026",
-    progress: 72,
-    accentColor: "#7c3aed",
-    members: [MOCK_USERS[0], MOCK_USERS[1], MOCK_USERS[2]],
-    deadline: "Mar 28, 2026",
-    daysLeft: 20,
-  },
-  {
-    id: 2,
-    name: "Web Dashboard",
-    category: "Frontend Development",
-    date: "Feb 20, 2026",
-    progress: 45,
-    accentColor: "#f59e0b",
-    members: [MOCK_USERS[1], MOCK_USERS[3]],
-    deadline: "Apr 10, 2026",
-    daysLeft: 33,
-  },
-  {
-    id: 3,
-    name: "Backend API",
-    category: "Backend Development",
-    date: "Feb 26, 2026",
-    progress: 88,
-    accentColor: "#f43f5e",
-    members: [MOCK_USERS[2], MOCK_USERS[4], MOCK_USERS[0]],
-    deadline: "Mar 31, 2026",
-    daysLeft: 23,
-  },
-];
-
-const markedDates = new Set(
-  MOCK_TASKS.filter((t) => t.deadline && t.status !== "done").map(
-    (t) => t.deadline as string,
-  ),
-);
-
-//  Helpers 
-const PRIORITY_COLOR: Record<TaskPriority, string> = {
-  low: "#22c55e",
-  medium: "#f59e0b",
-  high: "#f43f5e",
-  urgent: "#7c3aed",
-};
-
-const STATUS_LABEL: Record<TaskStatus, string> = {
-  to_do: "To Do",
-  in_progress: "In Progress",
-  done: "Done",
-};
-
-const STATUS_COLOR: Record<TaskStatus, string> = {
-  to_do: "#94a3b8",
-  in_progress: "#7c3aed",
-  done: "#22c55e",
-};
-
-//  Stats 
-const totalTasks = MOCK_TASKS.length;
-const doneTasks = MOCK_TASKS.filter((t) => t.status === "done").length;
-const teamCount = MOCK_USERS.length;
-
-const STATS = [
-  {
-    label: "Active Projects",
-    value: String(MOCK_PROJECTS.length),
-    delta: `${MOCK_PROJECTS.length} total`,
-    color: "#7c3aed",
-  },
-  {
-    label: "Tasks Done",
-    value: String(doneTasks),
-    delta: `${Math.round((doneTasks / totalTasks) * 100)}% completed`,
-    color: "#22c55e",
-  },
-  {
-    label: "Team Members",
-    value: String(teamCount),
-    delta: "on this project",
-    color: "#f43f5e",
-  },
-  {
-    label: "Overdue",
-    value: String(
-      MOCK_TASKS.filter(
-        (t) =>
-          t.deadline && new Date(t.deadline) < MOCK_NOW && t.status !== "done",
-      ).length,
-    ),
-    delta: "need attention",
-    color: "#d97706",
-  },
-];
-
+// ── Sub-components ─────────────────────────────────────────
 const WELCOME_PHRASES = [
   "A new day, a fresh start — let's work.",
   "Great things happen one task at a time.",
@@ -130,60 +43,44 @@ const WELCOME_PHRASES = [
   "Your best work starts right now.",
 ];
 
-//  Animated Counter Hook 
 function useCountUp(target: number, duration = 1200) {
   const [count, setCount] = useState(0);
-
   useEffect(() => {
     if (target === 0) return;
     let start = 0;
     const step = target / (duration / 16);
     const timer = setInterval(() => {
       start += step;
-      if (start >= target) {
-        setCount(target);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(start));
-      }
+      if (start >= target) { setCount(target); clearInterval(timer); }
+      else setCount(Math.floor(start));
     }, 16);
     return () => clearInterval(timer);
   }, [target, duration]);
-
   return count;
 }
 
-//  Typewriter Component 
 function TypewriterText() {
   const [phraseIdx, setPhraseIdx] = useState(() =>
     Math.floor(Math.random() * WELCOME_PHRASES.length),
   );
   const [displayed, setDisplayed] = useState("");
-  const [phase, setPhase] = useState<"typing" | "waiting" | "erasing">(
-    "typing",
-  );
+  const [phase, setPhase] = useState<"typing" | "waiting" | "erasing">("typing");
 
   useEffect(() => {
     const phrase = WELCOME_PHRASES[phraseIdx];
-
     if (phase === "typing") {
       if (displayed.length < phrase.length) {
-        const t = setTimeout(
-          () => setDisplayed(phrase.slice(0, displayed.length + 1)),
-          40,
-        );
+        const t = setTimeout(() => setDisplayed(phrase.slice(0, displayed.length + 1)), 40);
         return () => clearTimeout(t);
       } else {
         const t = setTimeout(() => setPhase("waiting"), 2200);
         return () => clearTimeout(t);
       }
     }
-
     if (phase === "waiting") {
       const t = setTimeout(() => setPhase("erasing"), 200);
       return () => clearTimeout(t);
     }
-
     if (phase === "erasing") {
       if (displayed.length > 0) {
         const t = setTimeout(() => setDisplayed((d) => d.slice(0, -1)), 18);
@@ -192,12 +89,11 @@ function TypewriterText() {
         const t = setTimeout(() => {
           setPhraseIdx((i) => {
             let next = Math.floor(Math.random() * WELCOME_PHRASES.length);
-            while (next === i)
-              next = Math.floor(Math.random() * WELCOME_PHRASES.length);
+            while (next === i) next = Math.floor(Math.random() * WELCOME_PHRASES.length);
             return next;
           });
           setPhase("typing");
-        }, 0); // ← bọc vào setTimeout tránh setState đồng bộ trong effect
+        }, 0);
         return () => clearTimeout(t);
       }
     }
@@ -215,63 +111,94 @@ function TypewriterText() {
   );
 }
 
-//  Stat Card 
-function StatCard({
-  value,
-  label,
-  delta,
-  color,
-}: {
-  value: string;
-  label: string;
-  delta: string;
-  color: string;
+function StatCard({ value, label, delta, color }: {
+  value: number; label: string; delta: string; color: string;
 }) {
-  const num = useCountUp(parseInt(value) || 0, 1200);
-
+  const num = useCountUp(value, 1200);
   return (
     <div className="bg-white rounded-2xl p-4 border border-gray-100 cursor-default">
       <div className="flex items-center gap-3">
-        <div className="font-heading text-3xl font-bold text-gray-800 tracking-tight leading-none">
-          {num}
-        </div>
+        <div className="font-heading text-3xl font-bold text-gray-800 tracking-tight leading-none">{num}</div>
         <div>
           <div className="text-xs text-gray-400">{label}</div>
-          <div className="text-[10px] font-semibold mt-0.5" style={{ color }}>
-            {delta}
-          </div>
+          <div className="text-[10px] font-semibold mt-0.5" style={{ color }}>{delta}</div>
         </div>
       </div>
     </div>
   );
 }
 
-//  Main Component 
-export default function DashboardPage() {
-  const tasks = MOCK_TASKS.filter((t) => t.status !== "done").slice(0, 4);
+// ── Main ───────────────────────────────────────────────────
+interface DashboardPageProps {
+  projects: ProjectUI[];
+  profileName: string;
+}
 
-  const [calMonth, setCalMonth] = useState(MOCK_NOW.getMonth());
-  const [calYear, setCalYear] = useState(MOCK_NOW.getFullYear());
+export default function DashboardPage({ projects, profileName }: DashboardPageProps) {
+  const [issues, setIssues] = useState<IssueResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const now = new Date();
+  const [calMonth, setCalMonth] = useState(now.getMonth());
+  const [calYear, setCalYear] = useState(now.getFullYear());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
+
+  useEffect(() => {
+    issueApi.getAssigned()
+      .then(setIssues)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const totalIssues = issues.length;
+  const doneIssues = issues.filter((i) => i.status === "DONE").length;
+  const overdueIssues = issues.filter(
+    (i) => i.deadline && new Date(i.deadline) < now && i.status !== "DONE",
+  ).length;
+
+  const STATS = [
+    { label: "Active Projects", value: projects.length, delta: `${projects.length} total`, color: "#7c3aed" },
+    {
+      label: "Tasks Done", value: doneIssues,
+      delta: totalIssues > 0 ? `${Math.round((doneIssues / totalIssues) * 100)}% completed` : "0% completed",
+      color: "#22c55e",
+    },
+    { label: "Total Tasks", value: totalIssues, delta: "assigned to you", color: "#f43f5e" },
+    { label: "Overdue", value: overdueIssues, delta: "need attention", color: "#d97706" },
+  ];
+
+  const todayTasks = issues.filter((i) => i.status !== "DONE").slice(0, 4);
+
+  const markedDates = useMemo(
+    () => new Set(
+      issues
+        .filter((i) => i.deadline && i.status !== "DONE")
+        .map((i) => i.deadline!.split("T")[0]),
+    ),
+    [issues],
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <p className="text-sm text-gray-400">Loading dashboard...</p>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className="min-h-screen bg-gray-100"
-      style={{ fontFamily: "'DM Sans', 'Plus Jakarta Sans', sans-serif" }}
-    >
+    <div className="min-h-screen bg-gray-100" style={{ fontFamily: "'DM Sans', 'Plus Jakarta Sans', sans-serif" }}>
       <div className="max-w-7xl mx-auto px-6 py-6 grid grid-cols-1 xl:grid-cols-[1fr_296px] gap-5 items-start">
-        {/*  LEFT COLUMN  */}
+
+        {/* LEFT */}
         <div className="space-y-4 min-w-0">
-          {/* Welcome Card */}
+          {/* Welcome */}
           <div className="bg-white rounded-2xl px-7 py-6 border border-gray-100 flex items-center justify-between overflow-hidden">
             <div>
               <TypewriterText />
               <h1 className="font-heading text-3xl font-bold tracking-tight leading-tight">
-                Hi{" "}
-                <span style={{ color: "#7c3aed" }}>
-                  {CURRENT_USER.display_name}
-                </span>
-                !
+                Hi <span style={{ color: "#7c3aed" }}>{profileName}</span>!
               </h1>
             </div>
             <div className="flex-shrink-0 w-28 h-20 flex items-center justify-center select-none">
@@ -281,43 +208,33 @@ export default function DashboardPage() {
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {STATS.map((s, i) => (
-              <StatCard key={i} {...s} />
-            ))}
+            {STATS.map((s, i) => <StatCard key={i} {...s} />)}
           </div>
 
           {/* Active Projects */}
-          <ActiveProjects />
+          <ActiveProjects projects={projects} />
 
-          {/* Statistics Chart */}
+          {/* Chart */}
           <WorkingHoursChart />
         </div>
 
-        {/*  RIGHT SIDEBAR  */}
+        {/* RIGHT */}
         <div className="space-y-5 min-w-0 xl:sticky xl:top-8">
-          {/* MiniCalendar */}
+          {/* Calendar */}
           <div className="bg-white rounded-2xl p-5 border border-gray-100">
             <MiniCalendar
-              today={MOCK_NOW}
+              today={now}
               currentMonth={calMonth}
               currentYear={calYear}
               selectedDate={selectedDate}
               markedDates={markedDates}
               onPrevMonth={() => {
-                if (calMonth === 0) {
-                  setCalMonth(11);
-                  setCalYear((y) => y - 1);
-                } else {
-                  setCalMonth((m) => m - 1);
-                }
+                if (calMonth === 0) { setCalMonth(11); setCalYear((y) => y - 1); }
+                else setCalMonth((m) => m - 1);
               }}
               onNextMonth={() => {
-                if (calMonth === 11) {
-                  setCalMonth(0);
-                  setCalYear((y) => y + 1);
-                } else {
-                  setCalMonth((m) => m + 1);
-                }
+                if (calMonth === 11) { setCalMonth(0); setCalYear((y) => y + 1); }
+                else setCalMonth((m) => m + 1);
               }}
               onSelectDate={setSelectedDate}
               onDoubleClickDate={setSelectedDate}
@@ -326,87 +243,68 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Today's Tasks — read-only */}
+          {/* Today's Tasks */}
           <div className="bg-white rounded-2xl p-5 border border-gray-100">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-heading font-semibold text-gray-700 text-sm">
-                Today — Mar 8
+                Today — {now.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
               </h2>
             </div>
-
             <div className="relative pl-4">
               <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-200" />
               <div className="space-y-3">
-                {tasks.map((task) => {
-                  const isDone = task.status === "done";
-                  const accentColor = PRIORITY_COLOR[task.priority];
-                  const assignee = task.assigned_to;
+                {todayTasks.map((issue) => {
+                  const status = toTaskStatus(issue.status);
+                  const priority = toTaskPriority(issue.priority);
+                  const isDone = status === "done";
+                  const accentColor = PRIORITY_COLOR[priority];
 
                   return (
-                    <div key={task.id} className="flex gap-3">
-                      {/* Timeline dot */}
+                    <div key={issue.id} className="flex gap-3">
                       <div
                         className="relative z-10 mt-1 w-3.5 h-3.5 -ml-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center"
-                        style={{
-                          borderColor: isDone ? accentColor : "#e5e7eb",
-                          background: isDone ? accentColor : "white",
-                        }}
+                        style={{ borderColor: isDone ? accentColor : "#e5e7eb", background: isDone ? accentColor : "white" }}
                       >
                         {isDone && <RiCheckLine size={8} color="white" />}
                       </div>
-
-                      {/* Card — clickable via Link */}
                       <Link
-                        to={`/tasks/${task.id}`}
+                        to={`/projects/${issue.projectId}/issues/${issue.id}`}
                         draggable={false}
-                        className={`flex-1 rounded-xl p-3 border min-w-0 block transition-opacity hover:opacity-80 ${
-                          isDone
-                            ? "opacity-50 bg-gray-100 border-gray-100"
-                            : "bg-gray-100 border-gray-100"
-                        }`}
+                        className="flex-1 rounded-xl p-3 border min-w-0 block transition-opacity hover:opacity-80 bg-gray-100 border-gray-100"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <p
-                            className={`text-xs font-semibold truncate ${
-                              isDone
-                                ? "line-through text-gray-400"
-                                : "text-gray-700"
-                            }`}
-                          >
-                            {task.title}
-                          </p>
+                          <p className="text-xs font-semibold truncate text-gray-700">{issue.issueName}</p>
                           <span
                             className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md flex-shrink-0 border"
                             style={{
-                              color: STATUS_COLOR[task.status],
-                              borderColor: STATUS_COLOR[task.status] + "40",
-                              background: STATUS_COLOR[task.status] + "10",
+                              color: STATUS_COLOR[status],
+                              borderColor: STATUS_COLOR[status] + "40",
+                              background: STATUS_COLOR[status] + "10",
                             }}
                           >
-                            {STATUS_LABEL[task.status]}
+                            {STATUS_LABEL[status]}
                           </span>
                         </div>
-
-                        {task.deadline && (
+                        {issue.deadline && (
                           <p className="text-[10px] text-gray-400 mt-0.5">
-                            Due{" "}
-                            {new Date(task.deadline).toLocaleDateString(
-                              "en-US",
-                              { month: "short", day: "numeric" },
-                            )}
+                            Due {new Date(issue.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           </p>
                         )}
-
-                        {assignee && (
+                        {issue.assignedTo && (
                           <div className="flex items-center gap-1.5 mt-2">
-                            <img
-                              src={assignee.avt}
-                              alt={assignee.display_name}
-                              className="w-5 h-5 rounded-full border border-white object-cover"
-                              title={assignee.display_name}
-                            />
+                            {issue.assignedTo.picture ? (
+                              <img
+                                src={issue.assignedTo.picture}
+                                alt={issue.assignedTo.profileName}
+                                className="w-5 h-5 rounded-full border border-white object-cover"
+                              />
+                            ) : (
+                              <div className="w-5 h-5 rounded-full bg-violet-200 flex items-center justify-center text-[9px] font-bold text-violet-700">
+                                {issue.assignedTo.profileName[0]}
+                              </div>
+                            )}
                             <span className="text-[10px] text-gray-400 truncate max-w-[80px]">
-                              {assignee.display_name.split(" ")[0]}
+                              {issue.assignedTo.profileName.split(" ")[0]}
                             </span>
                           </div>
                         )}
@@ -415,15 +313,9 @@ export default function DashboardPage() {
                   );
                 })}
 
-                {tasks.length === 0 && (
+                {todayTasks.length === 0 && (
                   <div className="text-center py-8 text-gray-400">
-                    <RiTrophyLine
-                      size={22}
-                      className="mx-auto mb-2 text-amber-400"
-                    />
-                    <p className="text-xs font-medium">
-                      All tasks done for today!
-                    </p>
+                    <p className="text-xs font-medium">All tasks done for today! 🎉</p>
                   </div>
                 )}
               </div>

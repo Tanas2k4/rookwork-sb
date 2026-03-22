@@ -1,0 +1,98 @@
+import { useEffect, useRef } from "react";
+import SockJS from "sockjs-client";
+import { Client, type IMessage } from "@stomp/stompjs";
+import { tokenStorage } from "../api/tokenStorage";
+
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+
+export interface WsCommentPayload {
+  type: "NEW_COMMENT" | "UPDATED_COMMENT" | "DELETED_COMMENT";
+  comment?: unknown;
+  commentId?: string;
+  issueId?: string;
+}
+
+export interface WsNotificationPayload {
+  type: string;
+  notificationId: string;
+  issueId: string;
+  issueName: string;
+  projectName: string;
+  [key: string]: unknown;
+}
+
+interface UseWebSocketOptions {
+  projectId: string | null;
+  issueId: string | null; // UUID của issue đang mở trong TaskPanel
+  onComment?: (payload: WsCommentPayload) => void;
+  onNotification?: (payload: WsNotificationPayload) => void;
+}
+
+export function useWebSocket({
+  projectId,
+  issueId,
+  onComment,
+  onNotification,
+}: UseWebSocketOptions) {
+  const clientRef = useRef<Client | null>(null);
+  const onCommentRef = useRef(onComment);
+  const onNotificationRef = useRef(onNotification);
+
+  // Keep refs up to date without reconnecting
+  useEffect(() => {
+    onCommentRef.current = onComment;
+  }, [onComment]);
+  useEffect(() => {
+    onNotificationRef.current = onNotification;
+  }, [onNotification]);
+
+  useEffect(() => {
+    const token = tokenStorage.getAccess();
+    if (!token) return;
+
+    const client = new Client({
+      webSocketFactory: () => new SockJS(`${BASE_URL}/ws`) as WebSocket,
+      connectHeaders: {
+        Authorization: `Bearer ${token}`,
+      },
+      reconnectDelay: 5000,
+      onConnect: () => {
+        // Subscribe comments cho issue đang mở
+        if (projectId && issueId) {
+          client.subscribe(
+            `/topic/project/${projectId}/issue/${issueId}/comments`,
+            (msg: IMessage) => {
+              try {
+                const payload = JSON.parse(msg.body) as WsCommentPayload;
+                onCommentRef.current?.(payload);
+              } catch (e) {
+                console.error("WS comment parse error", e);
+              }
+            },
+          );
+        }
+
+        // Subscribe personal notifications
+        client.subscribe("/user/queue/notifications", (msg: IMessage) => {
+          try {
+            const payload = JSON.parse(msg.body) as WsNotificationPayload;
+            onNotificationRef.current?.(payload);
+          } catch (e) {
+            console.error("WS notification parse error", e);
+          }
+        });
+      },
+      onStompError: (frame) => {
+        console.error("STOMP error", frame);
+      },
+    });
+
+    client.activate();
+    clientRef.current = client;
+
+    return () => {
+      client.deactivate();
+      clientRef.current = null;
+    };
+  }, [projectId, issueId]); // reconnect khi đổi issue
+}

@@ -10,7 +10,7 @@ import MiniCalendar from "../calendar/MiniCalendar";
 import { issueApi } from "../api/issueApi";
 import type { IssueResponse } from "../api/contracts/issue";
 
-// ── Helpers ────────────────────────────────────────────────
+//  Helpers 
 const PRIORITY_COLOR: Record<TaskPriority, string> = {
   low: "#22c55e", medium: "#f59e0b", high: "#f43f5e", urgent: "#7c3aed",
 };
@@ -35,7 +35,7 @@ function toTaskPriority(p: string | null): TaskPriority {
   return map[p ?? ""] ?? "low";
 }
 
-// ── Sub-components ─────────────────────────────────────────
+//  Sub-components 
 const WELCOME_PHRASES = [
   "A new day, a fresh start — let's work.",
   "Great things happen one task at a time.",
@@ -128,7 +128,7 @@ function StatCard({ value, label, delta, color }: {
   );
 }
 
-// ── Main ───────────────────────────────────────────────────
+//  Main 
 interface DashboardPageProps {
   projects: ProjectUI[];
   profileName: string;

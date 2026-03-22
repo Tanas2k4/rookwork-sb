@@ -30,7 +30,7 @@ function App() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [projects, setProjects] = useState<ProjectUI[]>([]);
   const [profileName, setProfileName] = useState("");  // ← thêm
-
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   useEffect(() => {
     if (!loggedIn) return;
 
@@ -39,6 +39,7 @@ function App() {
       projectApi.getAll(),
     ]).then(([user, projectsRes]) => {
       setProfileName(user.profileName);
+      setAvatarUrl(user.picture ?? undefined);
       setProjects(projectsRes.map((p, i) => toProjectUI(p, i)));
     }).catch(console.error);
   }, [loggedIn]);
@@ -55,7 +56,8 @@ function App() {
     tokenStorage.clear();
     setLoggedIn(false);
     setProjects([]);
-    setProfileName("");  // ← reset
+    setProfileName("");
+    setAvatarUrl(undefined);
   };
 
   const handleProjectCreated = (newProject: ProjectResponse) => {
@@ -81,6 +83,7 @@ function App() {
               <Header
                 setSidebar={setSidebar}
                 displayName={profileName}
+                avatarUrl={avatarUrl} 
                 onLogout={handleLogout}
                 onProjectCreated={handleProjectCreated}
               />

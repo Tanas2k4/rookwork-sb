@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { IoSearchSharp } from "react-icons/io5";
 import { useBoard } from "../hooks/useBoard";
+import { useProject } from "../hooks/useProject";
 import { ToastContainer } from "../components/common/ToastContainer";
 import { BoardColumn } from "./board/BoardColumn";
 import { FilterMenu } from "./board/FilterMenu";
@@ -9,7 +10,13 @@ import type { Priority, TaskType } from "../types/project";
 import { statuses } from "../types/project";
 
 export default function BoardView() {
-  const board = useBoard();
+  const { projectId, setReloadIssues } = useProject();
+  const board = useBoard(projectId);
+
+  // Register board.reload vào context để ProjectHeader có thể trigger
+  useEffect(() => {
+    setReloadIssues(board.reload);
+  }, [board.reload]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPriority, setFilterPriority] = useState<Priority | "">("");
@@ -24,6 +31,7 @@ export default function BoardView() {
       (filterPriority === "" || t.priority === filterPriority) &&
       (filterType === "" || t.type === filterType),
   );
+
 
   return (
     <div className="px-6 py-4 bg-gray-50 min-h-screen">
@@ -85,7 +93,6 @@ export default function BoardView() {
         task={board.selectedTask}
         open={board.panelOpen}
         allTasks={board.tasks}
-        comments={board.taskComments}
         onClose={board.closePanel}
         onOpenTask={board.openTask}
         onSaveTitle={board.saveTitle}
@@ -100,9 +107,6 @@ export default function BoardView() {
         onToggleSubtask={board.toggleSubtask}
         onAddSubtask={board.addSubtask}
         onDeleteSubtask={board.deleteSubtask}
-        onSubmitComment={board.submitComment}
-        onEditComment={board.editComment}
-        onDeleteComment={board.deleteComment}
       />
     </div>
   );

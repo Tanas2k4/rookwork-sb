@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { FaChevronDown } from "react-icons/fa6";
 import { BsBell } from "react-icons/bs";
@@ -7,83 +7,143 @@ import { GoSidebarCollapse } from "react-icons/go";
 import { IoSearchSharp } from "react-icons/io5";
 import { BiPlus } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
+import SockJS from "sockjs-client";
+import { Client, type IMessage } from "@stomp/stompjs";
 import rookworkLogo from "../../assets/logo-no-background.png";
 import { CreateProjectPanel } from "./shared/CreateProjectPanel";
-import type { ProjectResponse } from "../../api/contracts/project";
+import { notificationApi } from "../../api/notificationApi";
+import { tokenStorage } from "../../api/tokenStorage";
+import type { NotificationResponse } from "../../api/contracts/notification";
+import type { ProjectResponse } from "../../api/contracts";
+
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+
 interface HeaderProps {
   setSidebar: Dispatch<SetStateAction<boolean>>;
   avatarUrl?: string;
   displayName?: string;
   onLogout?: () => void;
-  onProjectCreated?: (project: ProjectResponse) => void; 
+  onProjectCreated?: (p: ProjectResponse) => void;
 }
 
-interface Notification {
-  id: number;
-  type: "invite";
-  projectName: string;
-  invitedBy: string;
-  invitedByAvatar?: string;
-  role: string;
-  time: string;
-  status: "pending" | "accepted" | "rejected";
-}
-
-function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated  }: HeaderProps) {
+function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated }: HeaderProps) {
   const [open, setOpen] = useState(false);
   const [openNotification, setOpenNotification] = useState(false);
   const [openCreatePanel, setOpenCreatePanel] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  // TODO: fetch real notifications từ API
-  // useEffect(() => { notificationApi.getAll().then(setNotifications) }, []);
-
   const isElectron = window.navigator.userAgent.includes("Electron");
-  const userMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(e.target as Node)
-      )
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+  // ── Real notifications ───────────────────────────────────────────────────────
+  const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+
+  const loadNotifications = useCallback(() => {
+    notificationApi.getAll().then((all) => {
+      const normalized = all.map((n) => ({
+        ...n,
+        isRead: n.isRead ?? (n as unknown as { read?: boolean }).read ?? false,
+      }));
+      setNotifications(normalized);
+    }).catch((err) => console.error("Failed to load notifications", err));
   }, []);
+
+  // Load on mount
+  useEffect(() => {
+    let cancelled = false;
+    notificationApi.getAll().then((all) => {
+      if (!cancelled) {
+        // Jackson serialize boolean isRead() → "read" (bỏ prefix "is")
+        const normalized = all.map((n) => ({
+          ...n,
+          isRead: n.isRead ?? (n as unknown as { read?: boolean }).read ?? false,
+        }));
+        setNotifications(normalized);
+      }
+    }).catch(console.error);
+    return () => { cancelled = true; };
+  }, []);
+
+  // WebSocket real-time
+  useEffect(() => {
+    const token = tokenStorage.getAccess();
+    if (!token) return;
+
+    const client = new Client({
+      webSocketFactory: () => new SockJS(`${BASE_URL}/ws`) as WebSocket,
+      connectHeaders: { Authorization: `Bearer ${token}` },
+      reconnectDelay: 5000,
+      onConnect: () => {
+        client.subscribe("/user/queue/notifications", (msg: IMessage) => {
+          try {
+            const payload = JSON.parse(msg.body);
+            if (payload.notificationId) loadNotifications();
+          } catch (e) {
+            console.error("WS notification parse error", e);
+          }
+        });
+      },
+    });
+
+    client.activate();
+    return () => { client.deactivate(); };
+  }, [loadNotifications]);
+
+  const handleMarkAsRead = useCallback(async (id: string) => {
+    try {
+      await notificationApi.markAsRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+      );
+    } catch (err) {
+      console.error("Failed to mark as read", err);
+    }
+  }, []);
+
+  const handleMarkAllAsRead = useCallback(async () => {
+    try {
+      await notificationApi.markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    } catch (err) {
+      console.error("Failed to mark all as read", err);
+    }
+  }, []);
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  function formatTime(iso: string) {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMins = Math.floor((now.getTime() - d.getTime()) / 60000);
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${Math.floor(diffHours / 24)}d ago`;
+  }
+
+  // ── Original UI logic ────────────────────────────────────────────────────────
 
   const handleLogout = () => {
     if (isElectron) window.electron?.logout();
     onLogout?.();
   };
 
-  const handleAccept = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, status: "accepted" } : n)),
-    );
-  };
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const handleReject = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, status: "rejected" } : n)),
-    );
-  };
-
-  const pendingCount = notifications.filter(
-    (n) => n.status === "pending",
-  ).length;
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const initials = displayName
-    ? displayName
-        .split(" ")
-        .map((w) => w[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
-    : "?";
+    ? displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+    : "T";
 
   return (
     <>
+      {/* Notification Panel Overlay */}
       {openNotification && (
         <div
           onClick={() => setOpenNotification(false)}
@@ -93,6 +153,7 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
 
       <header className="font-heading text-sm h-[50px] px-4 bg-white border-b border-gray-300 flex items-center relative z-40">
         <div className="flex items-center justify-between w-full">
+          {/* Toggle Sidebar */}
           <button
             onClick={() => setSidebar((prev) => !prev)}
             className="md:hidden mr-3 p-2 hover:bg-gray-100 rounded"
@@ -100,10 +161,12 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
             <GoSidebarCollapse size={22} />
           </button>
 
+          {/* Logo */}
           <Link to="/">
             <img src={rookworkLogo} alt="logo" className="h-9 w-36" />
           </Link>
 
+          {/* Search + Create */}
           <div className="flex gap-3 relative w-max items-center">
             <div className="relative">
               <IoSearchSharp className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -122,25 +185,26 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
             </button>
           </div>
 
+          {/* User area */}
           <div className="flex items-center gap-2">
+            {/* Notification Bell */}
             <div className="relative">
               <button
                 onClick={() => setOpenNotification((p) => !p)}
                 className={`p-2 rounded-full transition ${
-                  openNotification
-                    ? "bg-gray-200 text-gray-900"
-                    : "text-gray-600 hover:bg-gray-200"
+                  openNotification ? "bg-gray-200 text-gray-900" : "text-gray-600 hover:bg-gray-200"
                 }`}
               >
                 <BsBell size={20} />
-                {pendingCount > 0 && (
+                {unreadCount > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 bg-red-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {pendingCount}
+                    {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
               </button>
             </div>
 
+            {/* User menu */}
             <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setOpen((p) => !p)}
@@ -162,7 +226,6 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
                   className={`mr-1 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
                 />
               </button>
-
               {open && (
                 <ul className="absolute right-0 mt-2 w-40 bg-white rounded-lg border border-gray-300 text-sm z-50 overflow-hidden">
                   <li className="px-4 py-2 border-b border-gray-200 hover:bg-gray-100 cursor-pointer">
@@ -184,31 +247,41 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
         </div>
       </header>
 
-      {/* Notification Panel */}
+      {/* Notification Side Panel */}
       <div
         className={`fixed top-0 right-0 h-full w-[360px] bg-white border-l border-gray-200 z-[60] flex flex-col
           transition-transform duration-300 ease-in-out
           ${openNotification ? "translate-x-0" : "translate-x-full"}`}
       >
+        {/* Panel Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-gray-800 text-base">
-              Notifications
-            </span>
-            {pendingCount > 0 && (
+            <span className="font-bold text-gray-800 text-base">Notifications</span>
+            {unreadCount > 0 && (
               <span className="bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-                {pendingCount} new
+                {unreadCount} new
               </span>
             )}
           </div>
-          <button
-            onClick={() => setOpenNotification(false)}
-            className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 transition"
-          >
-            <IoClose size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <button
+                onClick={handleMarkAllAsRead}
+                className="text-xs text-purple-700 hover:text-purple-900 transition"
+              >
+                Mark all read
+              </button>
+            )}
+            <button
+              onClick={() => setOpenNotification(false)}
+              className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 transition"
+            >
+              <IoClose size={18} />
+            </button>
+          </div>
         </div>
 
+        {/* Panel Body */}
         <div className="flex-1 overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm gap-2">
@@ -218,17 +291,15 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
           ) : (
             <ul className="divide-y divide-gray-100">
               {notifications.map((n) => {
-                const avatarInitials = n.invitedBy
-                  .split(" ")
-                  .map((w) => w[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase();
+                const avatarInitials = n.title
+                  .split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+
                 return (
                   <li
                     key={n.id}
-                    className={`hover:bg-gray-100 px-5 py-4 transition ${
-                      n.status === "pending" ? "bg-purple-50/40" : "bg-white"
+                    onClick={() => { if (!n.isRead) handleMarkAsRead(n.id); }}
+                    className={`hover:bg-gray-100 px-5 py-4 transition cursor-pointer ${
+                      !n.isRead ? "bg-purple-50/40" : "bg-white"
                     }`}
                   >
                     <div className="flex gap-3">
@@ -236,42 +307,17 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
                         {avatarInitials}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-700 leading-snug">
-                          <span className="font-semibold text-gray-900">
-                            {n.invitedBy}
-                          </span>{" "}
-                          invited you to join{" "}
-                          <span className="font-semibold text-purple-800">
-                            {n.projectName}
-                          </span>
-                          .
+                        <p className="text-sm text-gray-700 leading-snug font-semibold">
+                          {n.title}
                         </p>
-                        <p className="text-xs text-gray-400 mt-1">{n.time}</p>
-                        {n.status === "pending" && (
-                          <div className="flex gap-2 mt-3">
-                            <button
-                              onClick={() => handleAccept(n.id)}
-                              className="px-3 py-1 bg-purple-900 text-white text-xs font-medium rounded-md hover:bg-purple-800 transition"
-                            >
-                              Accept
-                            </button>
-                            <button
-                              onClick={() => handleReject(n.id)}
-                              className="px-3 py-1 bg-white text-gray-700 text-xs font-medium rounded-md border border-gray-500 hover:bg-gray-100 transition"
-                            >
-                              Decline
-                            </button>
-                          </div>
-                        )}
-                        {n.status === "accepted" && (
-                          <span className="inline-flex items-center gap-1 mt-2 text-xs text-green-600 font-medium">
-                            Accepted
-                          </span>
-                        )}
-                        {n.status === "rejected" && (
-                          <span className="inline-flex items-center gap-1 mt-2 text-xs text-gray-400 font-medium">
-                            Declined
-                          </span>
+                        <p className="text-sm text-gray-600 mt-0.5 leading-snug">
+                          {n.message}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {formatTime(n.createdAt)}
+                        </p>
+                        {!n.isRead && (
+                          <span className="inline-block mt-1 w-2 h-2 bg-purple-500 rounded-full" />
                         )}
                       </div>
                     </div>
@@ -282,6 +328,7 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
           )}
         </div>
 
+        {/* Panel Footer */}
         <div className="border-t border-gray-200 px-5 py-3">
           <button className="w-full text-center text-sm font-medium text-purple-800 hover:text-purple-900 transition">
             View all notifications
@@ -289,12 +336,13 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
         </div>
       </div>
 
+      {/* Create Project Panel */}
       <CreateProjectPanel
         open={openCreatePanel}
         onClose={() => setOpenCreatePanel(false)}
+        onProjectCreated={onProjectCreated}
         displayName={displayName}
         avatarUrl={avatarUrl}
-        onProjectCreated={onProjectCreated}
       />
     </>
   );

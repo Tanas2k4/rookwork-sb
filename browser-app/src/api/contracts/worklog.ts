@@ -10,8 +10,8 @@ export interface WorkStatsResponse {
 
 export interface LogWorkRequest {
   issueId: string;
-  hours: number;
-  loggedAt?: string; // "YYYY-MM-DD"
+  startAt: string;  
+  endAt: string;    
   note?: string;
 }
 
@@ -19,7 +19,9 @@ export interface WorkLogResponse {
   id: string;
   issueId: string;
   issueName: string;
+  userProfileName: string;
+  userPicture: string | null;
   hours: number;
-  loggedAt: string;
+  loggedAt: string; // ISO LocalDateTime string
   note: string | null;
 }

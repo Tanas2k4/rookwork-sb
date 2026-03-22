@@ -6,5 +6,8 @@ export const workLogApi = {
     apiClient.get<WorkStatsResponse>(`/api/work-logs/stats?period=${period}`),
 
   logWork: (data: LogWorkRequest) =>
-    apiClient.post<WorkLogResponse>("/api/work-logs", data),
+    apiClient.post<WorkLogResponse[]>("/api/work-logs", data),
+
+  getByIssue: (issueId: string) =>
+    apiClient.get<WorkLogResponse[]>(`/api/work-logs/issue/${issueId}`),
 };

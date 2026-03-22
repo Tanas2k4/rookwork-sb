@@ -13,7 +13,7 @@ export interface CreateIssueRequest {
   issueType: IssueType;
   priority: PriorityType;
   description?: string;
-  deadline?: string; // ISO string
+  deadline?: string; // "2024-08-15T00:00:00" 
   status: Status;
 }
 
@@ -21,10 +21,10 @@ export interface UpdateIssueRequest {
   issueName?: string;
   description?: string;
   priority?: PriorityType;
-  deadline?: string;
-  assignedToId?: string;
+  deadline?: string;      // "2024-08-15" — maps to LocalDate
+  assignedToId?: string;  // UUID string
   status?: Status;
-  parentId?: string;
+  parentId?: string;      // UUID string
 }
 
 export interface IssueResponse {

@@ -23,11 +23,9 @@ import {
 
 // Reuse existing section components
 import { SubtasksSection } from "../project/board/TaskPanel/SubtasksSection";
-import {
-  ActivitySection,
-  type ActivityLog,
-} from "../project/board/TaskPanel/ActivitySection";
+import { ActivitySection } from "../project/board/TaskPanel/ActivitySection";
 import { ChildrenSection } from "../project/board/TaskPanel/ChildrenSection";
+import type ActivityLog from "../project/board/TaskPanel/ChildrenSection";
 import { MdOutlineExpandMore } from "react-icons/md";
 import { IoIosArrowBack } from "react-icons/io";
 

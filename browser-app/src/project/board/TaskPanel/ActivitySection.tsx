@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import type { CommentResponse } from "../../../api/contracts/comment";
-import { commentApi } from "../../../api/commentApi";
+import { commentApi } from "../../../api/services/commentApi";
 import { apiClient } from "../../../api/apiClient";
 import { useProject } from "../../../hooks/useProject";
 import { useWebSocket, type WsCommentPayload } from "../../../hooks/useWebSocket";
 import { tokenStorage } from "../../../api/tokenStorage";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ActivityResponse {
   id: string;
@@ -20,7 +18,7 @@ interface ActivityResponse {
   createdAt: string;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+//  Helpers 
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
@@ -52,7 +50,7 @@ function actionLabel(a: ActivityResponse): string {
   }
 }
 
-// ── Comment Item ──────────────────────────────────────────────────────────────
+//  Comment Item 
 
 function CommentItem({
   comment, depth = 0, currentUserId, onEdit, onDelete, onReply,
@@ -181,7 +179,7 @@ function CommentItem({
   );
 }
 
-// ── Activity Log Item ─────────────────────────────────────────────────────────
+//  Activity Log Item ─
 
 function ActivityLogItem({ log }: { log: ActivityResponse }) {
   return (
@@ -197,7 +195,7 @@ function ActivityLogItem({ log }: { log: ActivityResponse }) {
   );
 }
 
-// ── Main Section ──────────────────────────────────────────────────────────────
+//  Main Section 
 
 type Tab = "all" | "comments" | "history";
 

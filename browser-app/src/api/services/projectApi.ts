@@ -1,5 +1,5 @@
-import { apiClient } from "./apiClient";
-import type { CreateProjectRequest, UpdateProjectRequest, ProjectResponse } from "./contracts/project";
+import { apiClient } from "../apiClient";
+import type { CreateProjectRequest, UpdateProjectRequest, ProjectResponse } from "../contracts/project";
 
 export const projectApi = {
   getAll: () =>

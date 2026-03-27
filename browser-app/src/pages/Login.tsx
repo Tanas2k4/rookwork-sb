@@ -4,7 +4,7 @@ import { IoIosLogIn } from "react-icons/io";
 import { IoMailOutline } from "react-icons/io5";
 import { TbLock } from "react-icons/tb";
 import { useNavigate } from "react-router-dom";
-import { authApi } from "../api/authApi";
+import { authApi } from "../api/services/authApi";
 import { tokenStorage } from "../api/tokenStorage";
 
 function Login({ onSuccess }: { onSuccess: () => void }) {

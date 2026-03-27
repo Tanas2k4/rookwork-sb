@@ -1,9 +1,9 @@
-import { apiClient } from "./apiClient";
+import { apiClient } from "../apiClient";
 import type {
   CreateIssueRequest,
   UpdateIssueRequest,
   IssueResponse,
-} from "./contracts/issue";
+} from "../contracts/issue";
 
 export const issueApi = {
   getAll: (projectId: string) =>

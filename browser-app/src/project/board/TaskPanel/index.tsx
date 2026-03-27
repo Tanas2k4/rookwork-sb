@@ -6,7 +6,7 @@ import { TaskPanelDetails } from "./TaskPanelDetails";
 import { ChildrenSection } from "./ChildrenSection";
 import { SubtasksSection } from "./SubtasksSection";
 import { ActivitySection } from "./ActivitySection";
-import { workLogApi } from "../../../api/workLogApi";
+import { workLogApi } from "../../../api/services/workLogApi";
 import type { WorkLogResponse } from "../../../api/contracts/worklog";
 import { RiTimeLine } from "react-icons/ri";
 

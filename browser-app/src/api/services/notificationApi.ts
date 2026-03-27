@@ -1,5 +1,5 @@
-import { apiClient } from "./apiClient";
-import type { NotificationResponse } from "./contracts/notification";
+import { apiClient } from "../apiClient";
+import type { NotificationResponse } from "../contracts/notification";
 
 export const notificationApi = {
   getAll: () =>

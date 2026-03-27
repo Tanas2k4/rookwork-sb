@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { LuUser } from "react-icons/lu";
 import { IoMailOutline } from "react-icons/io5";
 import { TbLock } from "react-icons/tb";
-import { authApi } from "../api/authApi";
+import { authApi } from "../api/services/authApi";
 import { tokenStorage } from "../api/tokenStorage";
 
 function Register() {

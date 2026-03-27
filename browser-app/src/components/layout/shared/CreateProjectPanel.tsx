@@ -3,7 +3,7 @@ import { MdClose, MdAdd } from "react-icons/md";
 import { FaLock, FaGlobe } from "react-icons/fa";
 import { BiCheck } from "react-icons/bi";
 import ProjectImage from "../../../assets/project-background.jpg";
-import { projectApi } from "../../../api/projectApi";
+import { projectApi } from "../../../api/services/projectApi";
 import type { ProjectResponse } from "../../../api/contracts/project";
 import { ToastContainer } from "../../common/ToastContainer";
 import type { Toast } from "../../../types/project";

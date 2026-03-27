@@ -9,6 +9,7 @@ import {
   priorityLabelMap,
 } from "../../../types/project";
 import { useProject } from "../../../hooks/useProject";
+import { formatDeadline } from "../../shared/dropdownConstants";
 
 interface Props {
   task: Task;
@@ -16,17 +17,6 @@ interface Props {
   onChangePriority: (p: Priority) => void;
   onChangeAssignee: (u: User | null) => void;
   onSaveDeadline: (val: string) => void;
-}
-
-function formatDeadline(val: string): string {
-  if (!val) return "No deadline";
-  const d = new Date(val);
-  if (isNaN(d.getTime())) return val;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ` +
-    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-  );
 }
 
 export function TaskPanelDetails({
@@ -38,11 +28,11 @@ export function TaskPanelDetails({
 }: Props) {
   const { members } = useProject();
 
-  const [showStatusDd, setShowStatusDd] = useState(false);
-  const [showPriorityDd, setShowPriorityDd] = useState(false);
-  const [showAssigneeDd, setShowAssigneeDd] = useState(false);
+  const [showStatusDd,    setShowStatusDd]    = useState(false);
+  const [showPriorityDd,  setShowPriorityDd]  = useState(false);
+  const [showAssigneeDd,  setShowAssigneeDd]  = useState(false);
   const [editingDeadline, setEditingDeadline] = useState(false);
-  const [deadlineValue, setDeadlineValue] = useState(task.deadline ?? "");
+  const [deadlineValue,   setDeadlineValue]   = useState(task.deadline ?? "");
 
   function closeAll() {
     setShowStatusDd(false);
@@ -50,7 +40,6 @@ export function TaskPanelDetails({
     setShowAssigneeDd(false);
   }
 
-  // Convert project members (UserSummary) to UI User format với _uuid cho API
   const memberUsers = members.map((m) => ({
     id: 0,
     email: "",
@@ -58,7 +47,7 @@ export function TaskPanelDetails({
     avt:
       m.picture ??
       `https://ui-avatars.com/api/?name=${encodeURIComponent(m.profileName)}&background=7c3aed&color=fff`,
-    _uuid: m.id, // UUID dùng cho assignedToId trong UpdateIssueRequest
+    _uuid: m.id,
   }));
 
   return (
@@ -70,11 +59,7 @@ export function TaskPanelDetails({
         </p>
         <div className="relative inline-block border border-gray-400 px-2 rounded-md">
           <button
-            onClick={() => {
-              setShowStatusDd((p) => !p);
-              setShowPriorityDd(false);
-              setShowAssigneeDd(false);
-            }}
+            onClick={() => { setShowStatusDd((p) => !p); setShowPriorityDd(false); setShowAssigneeDd(false); }}
             className="flex items-center gap-1.5 text-sm text-gray-700 px-2 py-1 transition"
           >
             <span className={`w-2 h-2 rounded-full ${statusMap[task.status].dotColor}`} />
@@ -84,11 +69,11 @@ export function TaskPanelDetails({
           {showStatusDd && (
             <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 w-40">
               {statuses.map((s) => (
-                <button
-                  key={s}
+                <button key={s}
                   onClick={() => { onChangeStatus(s); closeAll(); }}
-                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${task.status === s ? "text-purple-700 font-medium" : "text-gray-700"}`}
-                >
+                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                    task.status === s ? "text-purple-700 font-medium" : "text-gray-700"
+                  }`}>
                   <span className={`w-2 h-2 rounded-full ${statusMap[s].dotColor}`} />
                   {statusMap[s].label}
                 </button>
@@ -105,20 +90,15 @@ export function TaskPanelDetails({
         </p>
         <div className="relative inline-block border border-gray-400 px-2 rounded-md">
           <button
-            onClick={() => {
-              setShowPriorityDd((p) => !p);
-              setShowStatusDd(false);
-              setShowAssigneeDd(false);
-            }}
+            onClick={() => { setShowPriorityDd((p) => !p); setShowStatusDd(false); setShowAssigneeDd(false); }}
             className="flex items-center gap-2 text-sm text-gray-700 px-2 py-1 transition"
           >
             {priorityLabelMap[task.priority]}
             <div className="flex gap-0.5 h-1.5 w-14">
               {priorities.map((p, i) => (
-                <div
-                  key={p}
-                  className={`flex-1 rounded-sm ${i <= priorities.indexOf(task.priority) ? priorityColorMap[p] : "bg-gray-200"}`}
-                />
+                <div key={p} className={`flex-1 rounded-sm ${
+                  i <= priorities.indexOf(task.priority) ? priorityColorMap[p] : "bg-gray-200"
+                }`} />
               ))}
             </div>
             <MdOutlineExpandMore size={16} className="text-gray-400" />
@@ -126,11 +106,11 @@ export function TaskPanelDetails({
           {showPriorityDd && (
             <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 w-40">
               {priorities.map((p) => (
-                <button
-                  key={p}
+                <button key={p}
                   onClick={() => { onChangePriority(p); closeAll(); }}
-                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${task.priority === p ? "text-purple-700 font-medium" : "text-gray-700"}`}
-                >
+                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                    task.priority === p ? "text-purple-700 font-medium" : "text-gray-700"
+                  }`}>
                   <span className={`w-2 h-2 rounded-full ${priorityColorMap[p]}`} />
                   {priorityLabelMap[p]}
                 </button>
@@ -149,7 +129,7 @@ export function TaskPanelDetails({
           <input
             autoFocus
             type="datetime-local"
-            value={deadlineValue}
+            value={deadlineValue ? deadlineValue.slice(0, 16) : ""}
             onChange={(e) => setDeadlineValue(e.target.value)}
             onBlur={() => { onSaveDeadline(deadlineValue); setEditingDeadline(false); }}
             onKeyDown={(e) => {
@@ -176,11 +156,7 @@ export function TaskPanelDetails({
         </p>
         <div className="relative inline-block border border-gray-400 px-2 rounded-md">
           <button
-            onClick={() => {
-              setShowAssigneeDd((p) => !p);
-              setShowStatusDd(false);
-              setShowPriorityDd(false);
-            }}
+            onClick={() => { setShowAssigneeDd((p) => !p); setShowStatusDd(false); setShowPriorityDd(false); }}
             className="flex items-center gap-2 text-sm text-gray-700 px-2 py-1 transition max-w-[160px]"
           >
             {task.assigned_to ? (
@@ -205,11 +181,13 @@ export function TaskPanelDetails({
                 <p className="px-3 py-2 text-xs text-gray-400 italic">No members found</p>
               ) : (
                 memberUsers.map((u, i) => (
-                  <button
-                    key={i}
+                  <button key={i}
                     onClick={() => { onChangeAssignee(u); closeAll(); }}
-                    className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${task.assigned_to?.display_name === u.display_name ? "text-purple-700 font-medium" : "text-gray-700"}`}
-                  >
+                    className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                      task.assigned_to?.display_name === u.display_name
+                        ? "text-purple-700 font-medium"
+                        : "text-gray-700"
+                    }`}>
                     <img src={u.avt} className="w-5 h-5 rounded-full shrink-0" />
                     {u.display_name}
                   </button>

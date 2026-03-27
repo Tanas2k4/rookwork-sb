@@ -1,4 +1,4 @@
-// ─── Types ───────────────────────────────────────────────────────────────────
+//  Types 
 
 export type ViewMode = "Month" | "Week" | "Day";
 
@@ -32,7 +32,7 @@ export type EventForm = {
   guests: Guest[];
 };
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+//  Constants 
 
 export const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -89,7 +89,7 @@ export const INITIAL_EVENTS: CalendarEvent[] = [
   },
 ];
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+//  Helpers 
 
 export function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();

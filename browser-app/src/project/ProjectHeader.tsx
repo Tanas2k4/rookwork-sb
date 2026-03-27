@@ -5,7 +5,7 @@ import { IoAdd, IoClose } from "react-icons/io5";
 import { RiUserAddLine } from "react-icons/ri";
 import { FaTasks, FaBook, FaRocket } from "react-icons/fa";
 import { useProject } from "../hooks/useProject";
-import { issueApi } from "../api/issueApi";
+import { issueApi } from "../api/services/issueApi";
 import type {
   IssueType,
   PriorityType,

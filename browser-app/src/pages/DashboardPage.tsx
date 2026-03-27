@@ -7,7 +7,7 @@ import { RiCheckLine } from "react-icons/ri";
 import Image from "../assets/image.png";
 import type { TaskPriority, TaskStatus } from "../types/project";
 import MiniCalendar from "../calendar/MiniCalendar";
-import { issueApi } from "../api/issueApi";
+import { issueApi } from "../api/services/issueApi";
 import type { IssueResponse } from "../api/contracts/issue";
 
 //  Helpers 
@@ -136,7 +136,7 @@ interface DashboardPageProps {
 
 export default function DashboardPage({ projects, profileName }: DashboardPageProps) {
   const [issues, setIssues] = useState<IssueResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
 
   const now = new Date();
   const [calMonth, setCalMonth] = useState(now.getMonth());
@@ -148,7 +148,7 @@ export default function DashboardPage({ projects, profileName }: DashboardPagePr
     issueApi.getAssigned()
       .then(setIssues)
       .catch(console.error)
-      .finally(() => setLoading(false));
+      // .finally(() => setLoading(false));
   }, []);
 
   const totalIssues = issues.length;
@@ -179,13 +179,13 @@ export default function DashboardPage({ projects, profileName }: DashboardPagePr
     [issues],
   );
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-sm text-gray-400">Loading dashboard...</p>
-      </div>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+  //       <p className="text-sm text-gray-400">Loading dashboard...</p>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="min-h-screen bg-gray-100" style={{ fontFamily: "'DM Sans', 'Plus Jakarta Sans', sans-serif" }}>

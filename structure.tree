@@ -14,20 +14,26 @@
 │  ├── src
 │  │  ├── api
 │  │  │  ├── apiClient.ts
-│  │  │  ├── authApi.ts
 │  │  │  ├── contracts
+│  │  │  │  ├── activity.ts
 │  │  │  │  ├── auth.ts
-│  │  │  │  ├── contracts.ts
+│  │  │  │  ├── comment.ts
 │  │  │  │  ├── index.ts
 │  │  │  │  ├── issue.ts
+│  │  │  │  ├── notification.ts
 │  │  │  │  ├── project.ts
 │  │  │  │  ├── projectUI.ts
 │  │  │  │  └── worklog.ts
-│  │  │  ├── issueApi.ts
-│  │  │  ├── projectApi.ts
-│  │  │  ├── tokenStorage.ts
-│  │  │  ├── userApi.ts
-│  │  │  └── workLogApi.ts
+│  │  │  ├── services
+│  │  │  │  ├── activityApi.ts
+│  │  │  │  ├── authApi.ts
+│  │  │  │  ├── commentApi.ts
+│  │  │  │  ├── issueApi.ts
+│  │  │  │  ├── notificationApi.ts
+│  │  │  │  ├── projectApi.ts
+│  │  │  │  ├── userApi.ts
+│  │  │  │  └── workLogApi.ts
+│  │  │  └── tokenStorage.ts
 │  │  ├── App.tsx
 │  │  ├── assets
 │  │  │  ├── image.png
@@ -50,12 +56,16 @@
 │  │  │    │  └── CreateProjectPanel.tsx
 │  │  │    ├── Sidebar.tsx
 │  │  │    └── Titlebar.tsx
+│  │  ├── context
+│  │  │  └── ProjectContext.ts
 │  │  ├── doashbard
 │  │  │  ├── ActiveProjects.tsx
 │  │  │  └── WorkingHoursChart.tsx
 │  │  ├── hooks
 │  │  │  ├── useBoard.ts
-│  │  │  └── useListView.ts
+│  │  │  ├── useListView.ts
+│  │  │  ├── useProject.ts
+│  │  │  └── useWebSocket.ts
 │  │  ├── index.css
 │  │  ├── main.tsx
 │  │  ├── mocks
@@ -100,6 +110,7 @@
 │  │  │  │  └── Workloadsection.tsx
 │  │  │  ├── OverView.tsx
 │  │  │  ├── ProjectHeader.tsx
+│  │  │  ├── ProjectProvider.tsx
 │  │  │  ├── timeline
 │  │  │  │  ├── GanttBar.tsx
 │  │  │  │  ├── TaskListPanel.tsx

@@ -1,5 +1,5 @@
-import { apiClient } from "./apiClient";
-import type { WorkStatsResponse, LogWorkRequest, WorkLogResponse } from "./contracts/worklog";
+import { apiClient } from "../apiClient";
+import type { WorkStatsResponse, LogWorkRequest, WorkLogResponse } from "../contracts/worklog";
 
 export const workLogApi = {
   getStats: (period: "weekly" | "monthly") =>

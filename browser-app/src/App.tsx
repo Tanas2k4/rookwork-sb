@@ -18,8 +18,8 @@ import ListView from "./project/ListView";
 import Loading from "./components/common/Loading";
 import MyIssuesPage from "./pages/MyIssuesPage";
 import IssueDetailPage from "./pages/IssueDetailPage";
-import { projectApi } from "./api/projectApi";
-import { userApi } from "./api/userApi";
+import { projectApi } from "./api/services/projectApi";
+import { userApi } from "./api/services/userApi";
 import { tokenStorage } from "./api/tokenStorage";
 import { toProjectUI, type ProjectUI } from "./api/contracts/projectUI";
 import type { ProjectResponse } from "./api/contracts";
@@ -29,19 +29,20 @@ function App() {
   const [sidebar, setSidebar] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [projects, setProjects] = useState<ProjectUI[]>([]);
-  const [profileName, setProfileName] = useState("");  // ← thêm
+  const [profileName, setProfileName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   useEffect(() => {
     if (!loggedIn) return;
 
-    Promise.all([
-      userApi.getMe(),
-      projectApi.getAll(),
-    ]).then(([user, projectsRes]) => {
-      setProfileName(user.profileName);
-      setAvatarUrl(user.picture ?? undefined);
-      setProjects(projectsRes.map((p, i) => toProjectUI(p, i)));
-    }).catch(console.error);
+    Promise.all([userApi.getMe(), projectApi.getAll()])
+      .then(([user, projectsRes]) => {
+        setProfileName(user.profileName);
+        setAvatarUrl(user.picture ?? undefined);
+        setProjects(
+          projectsRes.map((p: ProjectResponse, i: number) => toProjectUI(p, i)),
+        );
+      })
+      .catch(console.error);
   }, [loggedIn]);
 
   const handleLoginSuccess = () => {
@@ -74,7 +75,10 @@ function App() {
 
           {!loggedIn ? (
             <Routes>
-              <Route path="/login" element={<Login onSuccess={handleLoginSuccess} />} />
+              <Route
+                path="/login"
+                element={<Login onSuccess={handleLoginSuccess} />}
+              />
               <Route path="/register" element={<Register />} />
               <Route path="*" element={<Navigate to="/login" />} />
             </Routes>
@@ -83,7 +87,7 @@ function App() {
               <Header
                 setSidebar={setSidebar}
                 displayName={profileName}
-                avatarUrl={avatarUrl} 
+                avatarUrl={avatarUrl}
                 onLogout={handleLogout}
                 onProjectCreated={handleProjectCreated}
               />
@@ -102,13 +106,19 @@ function App() {
                       element={
                         <DashboardPage
                           projects={projects}
-                          profileName={profileName}  // ← thêm
+                          profileName={profileName} // ← thêm
                         />
                       }
                     />
 
-                    <Route path="/projects/:projectKey" element={<ProjectPage />}>
-                      <Route index element={<Navigate to="overview" replace />} />
+                    <Route
+                      path="/projects/:projectKey"
+                      element={<ProjectPage />}
+                    >
+                      <Route
+                        index
+                        element={<Navigate to="overview" replace />}
+                      />
                       <Route path="overview" element={<OverView />} />
                       <Route path="board" element={<BoardView />} />
                       <Route path="timeline" element={<TimelineView />} />
@@ -117,7 +127,10 @@ function App() {
 
                     <Route path="/calendars" element={<CalendarView />} />
                     <Route path="/my-issues" element={<MyIssuesPage />} />
-                    <Route path="/issues/:issueId" element={<IssueDetailPage />} />
+                    <Route
+                      path="/issues/:issueId"
+                      element={<IssueDetailPage />}
+                    />
                     <Route path="*" element={<Navigate to="/dashboard" />} />
                   </Routes>
                 </main>

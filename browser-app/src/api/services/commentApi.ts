@@ -1,5 +1,5 @@
-import { apiClient } from "./apiClient";
-import type { CommentResponse, CreateCommentRequest } from "./contracts/comment";
+import { apiClient } from "../apiClient";
+import type { CommentResponse, CreateCommentRequest } from "../contracts/comment";
 
 export const commentApi = {
   getByIssue: (projectId: string, issueId: string) =>

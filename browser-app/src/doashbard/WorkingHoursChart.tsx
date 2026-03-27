@@ -4,7 +4,7 @@ import {
   Tooltip, ResponsiveContainer,
 } from "recharts";
 import { RiCheckLine, RiArrowDownSLine } from "react-icons/ri";
-import { workLogApi } from "../api/workLogApi";
+import { workLogApi } from "../api/services/workLogApi";
 import type { DailyHours } from "../api/contracts/worklog";
 
 const OPTIONS = [

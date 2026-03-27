@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { projectApi } from "../api/projectApi";
+import { projectApi } from "../api/services/projectApi";
 import type { ProjectResponse } from "../api/contracts";
 import { ProjectContext } from "../context/ProjectContext";
 

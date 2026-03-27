@@ -10,7 +10,7 @@ import type {
   Subtask,
 } from "../types/project";
 import { statusMap, priorityLabelMap } from "../types/project";
-import { issueApi } from "../api/issueApi";
+import { issueApi } from "../api/services/issueApi";
 import type { IssueResponse, IssueType, PriorityType, Status as ApiStatus, UserSummary } from "../api/contracts/issue";
 import { formatNow } from "../utils/date";
 

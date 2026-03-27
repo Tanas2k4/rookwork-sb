@@ -11,7 +11,7 @@ import SockJS from "sockjs-client";
 import { Client, type IMessage } from "@stomp/stompjs";
 import rookworkLogo from "../../assets/logo-no-background.png";
 import { CreateProjectPanel } from "./shared/CreateProjectPanel";
-import { notificationApi } from "../../api/notificationApi";
+import { notificationApi } from "../../api/services/notificationApi";
 import { tokenStorage } from "../../api/tokenStorage";
 import type { NotificationResponse } from "../../api/contracts/notification";
 import type { ProjectResponse } from "../../api/contracts";
@@ -328,12 +328,12 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
           )}
         </div>
 
-        {/* Panel Footer */}
+        {/* Panel Footer
         <div className="border-t border-gray-200 px-5 py-3">
           <button className="w-full text-center text-sm font-medium text-purple-800 hover:text-purple-900 transition">
             View all notifications
           </button>
-        </div>
+        </div> */}
       </div>
 
       {/* Create Project Panel */}

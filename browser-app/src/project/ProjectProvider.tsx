@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { projectApi } from "../api/services/projectApi";
 import type { ProjectResponse } from "../api/contracts";
 import { ProjectContext } from "../context/ProjectContext";
+import { useWebSocket, type WsNotificationPayload } from "../hooks/useWebSocket";
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const { projectKey } = useParams<{ projectKey: string }>();
@@ -10,7 +11,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const reloadIssuesRef = useRef<() => void>(() => {});
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!projectKey) return;
     setLoading(true);
     try {
@@ -25,11 +26,27 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [projectKey]);
 
   useEffect(() => {
     load();
-  }, [projectKey]);
+  }, [load]);
+
+  useWebSocket({
+    projectId: projectKey ?? null,
+    issueId: null,
+    onNotification: useCallback(
+      (payload: WsNotificationPayload) => {
+        if (
+          payload.type === "INVITATION_ACCEPTED" &&
+          payload.projectId === projectKey
+        ) {
+          load();
+        }
+      },
+      [load, projectKey],
+    ),
+  });
 
   return (
     <ProjectContext.Provider

@@ -31,6 +31,27 @@ function App() {
   const [projects, setProjects] = useState<ProjectUI[]>([]);
   const [profileName, setProfileName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
+  const reloadProjects = () => {
+    projectApi
+      .getAll()
+      .then((projectsRes: ProjectResponse[]) =>
+        setProjects(projectsRes.map((p, i) => toProjectUI(p, i))),
+      )
+      .catch(console.error);
+  };
+
+  useEffect(() => {
+    if (!loggedIn) return;
+    Promise.all([userApi.getMe(), projectApi.getAll()])
+      .then(([user, projectsRes]) => {
+        setProfileName(user.profileName);
+        setAvatarUrl(user.picture ?? undefined);
+        setProjects(
+          projectsRes.map((p: ProjectResponse, i: number) => toProjectUI(p, i)),
+        );
+      })
+      .catch(console.error);
+  }, [loggedIn]);
   useEffect(() => {
     if (!loggedIn) return;
 
@@ -90,6 +111,7 @@ function App() {
                 avatarUrl={avatarUrl}
                 onLogout={handleLogout}
                 onProjectCreated={handleProjectCreated}
+                onProjectsChanged={reloadProjects}
               />
 
               <div className="flex flex-1 overflow-hidden">

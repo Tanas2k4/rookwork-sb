@@ -8,16 +8,13 @@ import { IoSearchSharp } from "react-icons/io5";
 import { BiPlus } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
 import { RiDeleteBin6Line } from "react-icons/ri";
-import SockJS from "sockjs-client";
-import { Client, type IMessage } from "@stomp/stompjs";
 import rookworkLogo from "../../assets/logo-no-background.png";
 import { CreateProjectPanel } from "./shared/CreateProjectPanel";
 import { notificationApi } from "../../api/services/notificationApi";
-import { tokenStorage } from "../../api/tokenStorage";
+import { invitationApi } from "../../api/services/invitationApi";
+import { useWebSocket, type WsNotificationPayload } from "../../hooks/useWebSocket";
 import type { NotificationResponse } from "../../api/contracts/notification";
 import type { ProjectResponse } from "../../api/contracts";
-
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
 
 interface HeaderProps {
   setSidebar: Dispatch<SetStateAction<boolean>>;
@@ -25,18 +22,20 @@ interface HeaderProps {
   displayName?: string;
   onLogout?: () => void;
   onProjectCreated?: (p: ProjectResponse) => void;
+  onProjectsChanged?: () => void;
 }
 
-function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated }: HeaderProps) {
+function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated, onProjectsChanged }: HeaderProps) {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]                         = useState(false);
   const [openNotification, setOpenNotification] = useState(false);
-  const [openCreatePanel, setOpenCreatePanel] = useState(false);
+  const [openCreatePanel, setOpenCreatePanel]   = useState(false);
   const isElectron = window.navigator.userAgent.includes("Electron");
-  const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+  const [notifications, setNotifications]       = useState<NotificationResponse[]>([]);
+  const [respondingId, setRespondingId]         = useState<string | null>(null);
+  const [respondedMap, setRespondedMap]         = useState<Record<string, "accepted" | "declined">>({});
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // ── Normalize isRead (Jackson serializes boolean isX() → "x") ───────────────
   function normalize(all: NotificationResponse[]): NotificationResponse[] {
     return all.map((n) => ({
       ...n,
@@ -50,7 +49,6 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
       .catch((err: unknown) => console.error("Failed to load notifications", err));
   }, []);
 
-  // Load on mount
   useEffect(() => {
     let cancelled = false;
     notificationApi.getAll()
@@ -59,28 +57,19 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
     return () => { cancelled = true; };
   }, []);
 
-  // WebSocket real-time
-  useEffect(() => {
-    const token = tokenStorage.getAccess();
-    if (!token) return;
-    const client = new Client({
-      webSocketFactory: () => new SockJS(`${BASE_URL}/ws`) as WebSocket,
-      connectHeaders: { Authorization: `Bearer ${token}` },
-      reconnectDelay: 5000,
-      onConnect: () => {
-        client.subscribe("/user/queue/notifications", (msg: IMessage) => {
-          try {
-            const payload = JSON.parse(msg.body);
-            if (payload.notificationId) loadNotifications();
-          } catch (e) {
-            console.error("WS notification parse error", e);
-          }
-        });
-      },
-    });
-    client.activate();
-    return () => { client.deactivate(); };
-  }, [loadNotifications]);
+  //  WebSocket 
+  useWebSocket({
+    projectId: null,
+    issueId: null,
+    onNotification: useCallback((payload: WsNotificationPayload) => {
+      if (payload.notificationId) {
+        loadNotifications();
+      }
+      if (payload.type === "INVITATION_ACCEPTED") {
+        onProjectsChanged?.();
+      }
+    }, [loadNotifications, onProjectsChanged]),
+  });
 
   // Close user menu on outside click
   useEffect(() => {
@@ -96,7 +85,7 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
     try {
       await notificationApi.markAsRead(id);
       setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Failed to mark as read", err);
     }
   }, []);
@@ -105,7 +94,7 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
     try {
       await notificationApi.markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Failed to mark all as read", err);
     }
   }, []);
@@ -115,10 +104,35 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
     try {
       await notificationApi.delete(id);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Failed to delete notification", err);
     }
   }, []);
+
+  //  Respond to invitation 
+  const handleRespond = useCallback(
+    async (e: React.MouseEvent, invitationId: string, accept: boolean) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (respondingId) return;
+      setRespondingId(invitationId);
+      try {
+        await invitationApi.respond(invitationId, accept);
+        // Hiện text thay thế buttons ngay lập tức
+        setRespondedMap((prev) => ({
+          ...prev,
+          [invitationId]: accept ? "accepted" : "declined",
+        }));
+        if (accept) onProjectsChanged?.();
+        setTimeout(() => loadNotifications(), 800);
+      } catch (err) {
+        console.error("Failed to respond to invitation", err);
+      } finally {
+        setRespondingId(null);
+      }
+    },
+    [loadNotifications, respondingId, onProjectsChanged]
+  );
 
   const handleLogout = () => {
     if (isElectron) window.electron?.logout();
@@ -134,17 +148,15 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
     const diffHours = Math.floor(diffMins / 60);
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${Math.floor(diffHours / 24)}d ago`;
-  } 
+  }
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
-
   const initials = displayName
     ? displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
     : "T";
 
   return (
     <>
-      {/* Notification Panel Overlay */}
       {openNotification && (
         <div
           onClick={() => setOpenNotification(false)}
@@ -154,7 +166,6 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
 
       <header className="font-heading text-sm h-[50px] px-4 bg-white border-b border-gray-300 flex items-center relative z-40">
         <div className="flex items-center justify-between w-full">
-          {/* Toggle Sidebar */}
           <button
             onClick={() => setSidebar((prev) => !prev)}
             className="md:hidden mr-3 p-2 hover:bg-gray-100 rounded"
@@ -162,12 +173,10 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
             <GoSidebarCollapse size={22} />
           </button>
 
-          {/* Logo */}
           <Link to="/">
             <img src={rookworkLogo} alt="logo" className="h-9 w-36" />
           </Link>
 
-          {/* Search + Create */}
           <div className="flex gap-3 relative w-max items-center">
             <div className="relative">
               <IoSearchSharp className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -186,9 +195,7 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
             </button>
           </div>
 
-          {/* User area */}
           <div className="flex items-center gap-2">
-            {/* Notification Bell */}
             <div className="relative">
               <button
                 onClick={() => setOpenNotification((p) => !p)}
@@ -205,7 +212,6 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
               </button>
             </div>
 
-            {/* User menu */}
             <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setOpen((p) => !p)}
@@ -253,6 +259,7 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
         className={`fixed top-0 right-0 h-full w-[360px] bg-white border-l border-gray-200 z-[60] flex flex-col
           transition-transform duration-300 ease-in-out
           ${openNotification ? "translate-x-0" : "translate-x-full"}`}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Panel Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
@@ -296,18 +303,23 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
                 const avatarInitials = (sender?.profileName ?? n.title)
                   .split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
                 const avatarPic = sender?.picture ?? null;
+                const isInvitation = n.title === "Project Invitation";
+                const isResponding = respondingId === n.invitationId;
+                const respondedAs = n.invitationId ? respondedMap[n.invitationId] : undefined;
 
                 return (
                   <li
                     key={n.id}
                     onClick={() => {
                       if (!n.isRead) handleMarkAsRead(n.id);
-                      navigate(`/issues/${n.issueId}`);
-                      setOpenNotification(false);
+                      if (!isInvitation && n.issueId) {
+                        navigate(`/issues/${n.issueId}`);
+                        setOpenNotification(false);
+                      }
                     }}
-                    className={`group relative hover:bg-gray-100 px-5 py-4 transition cursor-pointer ${
-                      !n.isRead ? "bg-purple-50/40" : "bg-white"
-                    }`}
+                    className={`group relative hover:bg-gray-100 px-5 py-4 transition
+                      ${!isInvitation ? "cursor-pointer" : "cursor-default"}
+                      ${!n.isRead && !respondedAs ? "bg-purple-50/40" : "bg-white"}`}
                   >
                     <div className="flex gap-3">
                       {avatarPic ? (
@@ -322,22 +334,61 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
                         </div>
                       )}
                       <div className="flex-1 min-w-0 pr-6">
-                        <p className="text-sm font-semibold text-gray-700 leading-snug">
-                          {n.title}
-                        </p>
-                        <p className="text-sm text-gray-600 mt-0.5 leading-snug">
-                          {n.message}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {formatTime(n.createdAt)}
-                        </p>
-                        {!n.isRead && (
+                        <p className="text-sm font-semibold text-gray-700 leading-snug">{n.title}</p>
+                        <p className="text-sm text-gray-600 mt-0.5 leading-snug">{n.message}</p>
+                        <p className="text-xs text-gray-400 mt-1">{formatTime(n.createdAt)}</p>
+
+                        {/*  Invitation actions  */}
+                        {isInvitation && !n.isRead && n.invitationId && (
+                          <div
+                            className="mt-2"
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                          >
+                            {respondedAs ? (
+                              <p className={`text-xs italic font-medium ${
+                                respondedAs === "accepted" ? "text-green-600" : "text-gray-400"
+                              }`}>
+                                {respondedAs === "accepted"
+                                  ? "✓ You joined the project"
+                                  : "✗ You declined this invitation"}
+                              </p>
+                            ) : (
+                              <div className="flex gap-2">
+                                <button
+                                  disabled={isResponding}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    handleRespond(e, n.invitationId!, true);
+                                  }}
+                                  className="px-3 py-1 text-xs font-semibold text-white
+                                    bg-purple-700 hover:bg-purple-600 disabled:opacity-50 rounded-md transition"
+                                >
+                                  {isResponding ? "…" : "Accept"}
+                                </button>
+                                <button
+                                  disabled={isResponding}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    handleRespond(e, n.invitationId!, false);
+                                  }}
+                                  className="px-3 py-1 text-xs font-semibold text-gray-600
+                                    border border-gray-300 hover:bg-gray-100 disabled:opacity-50 rounded-md transition"
+                                >
+                                  {isResponding ? "…" : "Decline"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {!n.isRead && !respondedAs && (
                           <span className="inline-block mt-1 w-2 h-2 bg-purple-500 rounded-full" />
                         )}
                       </div>
                     </div>
 
-                    {/* Trash icon — hiện khi hover */}
                     <button
                       onClick={(e) => handleDelete(e, n.id)}
                       className="absolute top-3 right-3 p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50
@@ -354,7 +405,6 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
         </div>
       </div>
 
-      {/* Create Project Panel */}
       <CreateProjectPanel
         open={openCreatePanel}
         onClose={() => setOpenCreatePanel(false)}

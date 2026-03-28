@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { issueApi } from "../api/services/issueApi";
 import { taskToGantt } from "../project/timeline/timelineUtils";
 import type { GanttTask } from "../project/timeline/timelineUtils";
 import type { IssueResponse } from "../api/contracts/issue";
 import type { Task, TaskType, Status } from "../types/project";
 
-// ─── Mapping helpers ──────────────────────────────────────────────────────────
+//  Mapping helpers 
 
 function apiStatusToUI(s: IssueResponse["status"]): Status {
   if (!s) return "to_do";
@@ -21,7 +21,6 @@ function apiTypeToUI(t: IssueResponse["issueType"]): TaskType {
   return t.toLowerCase() as TaskType;
 }
 
-// Duration fallback per type (days) — mirrors timelineUtils inferStart logic
 const TYPE_DURATION: Record<IssueResponse["issueType"], number> = {
   TASK: 7,
   STORY: 14,
@@ -63,55 +62,44 @@ function issueToMinimalTask(issue: IssueResponse): Task {
 function issueToGantt(issue: IssueResponse): GanttTask {
   const minimalTask = issueToMinimalTask(issue);
   const gantt = taskToGantt(minimalTask);
-
   const start = new Date(issue.createdAt);
-
-  // has deadline → use it as end
-  // no deadline  → start + default duration per type (task=7d, story=14d, epic=28d)
   const end = issue.deadline
     ? new Date(issue.deadline)
     : addDaysToDate(start, TYPE_DURATION[issue.issueType]);
-
-  return {
-    ...gantt,
-    id: issue.id,
-    start,
-    end,
-  };
+  return { ...gantt, id: issue.id, start, end };
 }
 
-// ─── Hook ────────────────────────────────────────────────────────────────────
+//  Hook 
 
 export interface UseTimelineReturn {
   ganttTasks: GanttTask[];
-  loading: boolean;
   error: string | null;
   reload: () => void;
 }
 
 export function useTimeline(projectId: string | null): UseTimelineReturn {
   const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!projectId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const issues = await issueApi.getAll(projectId);
-      setGanttTasks(issues.map(issueToGantt));
-    } catch (err) {
-      console.error("useTimeline: failed to load issues", err);
-      setError("Failed to load timeline data");
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId]);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!projectId) return;
+    let cancelled = false;
 
-  return { ganttTasks, loading, error, reload: load };
+    issueApi
+      .getAll(projectId)
+      .then((issues) => {
+        if (!cancelled) setGanttTasks(issues.map(issueToGantt));
+      })
+      .catch((err) => {
+        console.error("useTimeline: failed to load issues", err);
+        if (!cancelled) setError("Failed to load timeline data");
+      });
+
+    return () => { cancelled = true; };
+  }, [projectId, tick]);
+
+  const reload = () => setTick((n) => n + 1);
+
+  return { ganttTasks, error, reload };
 }

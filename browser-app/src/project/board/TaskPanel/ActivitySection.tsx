@@ -179,7 +179,7 @@ function CommentItem({
   );
 }
 
-//  Activity Log Item ─
+//  Activity Log Item 
 
 function ActivityLogItem({ log }: { log: ActivityResponse }) {
   return (

@@ -17,7 +17,7 @@ import {
   typeColorMap,
 } from "../types/project";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+//  Helpers 
 
 function PriorityBars({ priority }: { priority: Priority }) {
   const idx = priorities.indexOf(priority);
@@ -41,7 +41,7 @@ const sortOptions: { val: SortKey; label: string }[] = [
   { val: "deadline", label: "Deadline" },
 ];
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+//  Page 
 
 export default function MyIssuesPage() {
   const navigate = useNavigate();
@@ -85,7 +85,7 @@ export default function MyIssuesPage() {
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/*  Header  */}
       <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-gray-100 space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -198,7 +198,7 @@ export default function MyIssuesPage() {
         </div>
       </div>
 
-      {/* ── Issue list ─────────────────────────────────────────────────────── */}
+      {/*  Issue list  */}
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
         {filtered.length === 0 ? (
           <div className="text-center py-16 text-gray-300">

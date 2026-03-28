@@ -46,7 +46,7 @@ function toDatetimeLocal(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// ── Log Work Section ───────────────────────────────────────────────────────────
+//  Log Work Section 
 function LogWorkSection({ taskUuid }: { taskUuid: string }) {
   const nowStr = toDatetimeLocal(new Date());
   const [startAt, setStartAt] = useState(nowStr);
@@ -236,7 +236,7 @@ function LogWorkSection({ taskUuid }: { taskUuid: string }) {
   );
 }
 
-// ── Main Panel ─────────────────────────────────────────────────────────────────
+//  Main Panel 
 export function TaskPanel({
   task,
   open,
@@ -331,6 +331,7 @@ export function TaskPanel({
 
               {childTypeMap[task.type] && (
                 <ChildrenSection
+                  key={`children-section-${task.id}-${(task.childIds ?? []).sort().join('-')}`}
                   task={task}
                   allTasks={allTasks}
                   onOpenTask={onOpenTask}
@@ -356,7 +357,7 @@ export function TaskPanel({
             <div className="flex-shrink-0 border-t border-gray-100 px-6 py-4 flex justify-end gap-2 bg-white">
               {confirmDelete ? (
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-600">Delete this task?</span>
+                  <span className="text-sm text-gray-600">Delete this issue?</span>
                   <button
                     onClick={() => { setConfirmDelete(false); onDeleteTask(task); }}
                     className="text-sm px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
@@ -375,7 +376,7 @@ export function TaskPanel({
                   onClick={() => setConfirmDelete(true)}
                   className="text-sm px-4 py-2 border border-gray-500 text-gray-700 rounded-lg hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition"
                 >
-                  Delete task
+                  Delete issue
                 </button>
               )}
               <button

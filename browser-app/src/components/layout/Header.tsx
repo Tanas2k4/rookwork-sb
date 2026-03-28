@@ -32,7 +32,7 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
   const [openCreatePanel, setOpenCreatePanel] = useState(false);
   const isElectron = window.navigator.userAgent.includes("Electron");
 
-  // ── Real notifications ───────────────────────────────────────────────────────
+  //  Real notifications 
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
 
   const loadNotifications = useCallback(() => {
@@ -119,7 +119,7 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
     return `${Math.floor(diffHours / 24)}d ago`;
   }
 
-  // ── Original UI logic ────────────────────────────────────────────────────────
+  //  Original UI logic 
 
   const handleLogout = () => {
     if (isElectron) window.electron?.logout();

@@ -29,7 +29,7 @@ import type ActivityLog from "../project/board/TaskPanel/ChildrenSection";
 import { MdOutlineExpandMore } from "react-icons/md";
 import { IoIosArrowBack } from "react-icons/io";
 
-// ─── Helpers (reused from TaskPanelDetails) ───────────────────────────────────
+//  Helpers (reused from TaskPanelDetails) 
 
 function PriorityBars({ priority }: { priority: Priority }) {
   const idx = priorities.indexOf(priority);
@@ -96,7 +96,7 @@ function DetailRow({
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+//  Page 
 
 export default function IssueDetailPage() {
   const { issueId } = useParams<{ issueId: string }>();
@@ -149,7 +149,7 @@ export default function IssueDetailPage() {
 
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
-      {/* ── Breadcrumb ───────────────────────────────────────────────────────── */}
+      {/*  Breadcrumb  */}
       <div
         onClick={() => navigate(backPath)}
         className="flex items-center gap-2 px-8 pt-5 text-gray-700 hover:text-purple-700 transition"
@@ -158,7 +158,7 @@ export default function IssueDetailPage() {
         <button className="text-sm  ">{backLabel}</button>
       </div>
 
-      {/* ── Title area ───────────────────────────────────────────────────────── */}
+      {/*  Title area  */}
       <div className="flex-shrink-0 px-8 pt-2 pb-5 border-b border-gray-100">
         {/* Title + inline actions */}
         <div className="flex items-center justify-between gap-3">
@@ -276,7 +276,7 @@ export default function IssueDetailPage() {
         </div>
       </div>
 
-      {/* ── Body ─────────────────────────────────────────────────────────────── */}
+      {/*  Body  */}
       <div className="flex-1 overflow-hidden flex">
         {/* ══ LEFT ══ */}
         <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">

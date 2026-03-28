@@ -1,74 +1,39 @@
 import { useState } from "react";
-import { MOCK_TASKS, MOCK_USERS, MOCK_COMMENTS } from "../../mocks/board";
-import type { TaskType } from "../../types/project";
+import type { OverviewData } from "../../hooks/useOverview";
 
-function TypeChip({ type }: { type: TaskType }) {
-  const cls: Record<TaskType, string> = {
-    epic: "bg-violet-100 text-violet-700",
-    story: "bg-sky-100 text-sky-700",
-    task: "bg-gray-100 text-gray-600",
-  };
-  return (
-    <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${cls[type]}`}>
-      {type}
-    </span>
-  );
-}
-
-export default function ProjectCard() {
-  const [tab, setTab] = useState<"assignment" | "comments">("comments");
-
-  const enrichedComments = MOCK_COMMENTS.map((c) => ({
-    ...c,
-    user: MOCK_USERS.find((u) => u.id === c.userId) ?? null,
-    task: MOCK_TASKS.find((t) => t.id === c.taskId) ?? null,
-  })).sort((a, b) => b.id - a.id);
+export default function ProjectCard({ data }: { data: OverviewData }) {
+  const [tab, setTab] = useState<"activity" | "assignment">("activity");
+  const { activities } = data;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="flex border-b border-gray-100">
-        {(["comments", "assignment"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
+        {(["activity", "assignment"] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)}
             className={`flex-1 py-3.5 text-xs uppercase tracking-widest transition-colors ${
-              tab === t
-                ? "text-purple-800 border-b-2 border-purple-800 font-bold"
-                : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {t === "comments" ? "Comments" : "Assignment"}
+              tab === t ? "text-purple-800 border-b-2 border-purple-800 font-bold" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+            }`}>
+            {t === "activity" ? "Activity" : "Assignment"}
           </button>
         ))}
       </div>
 
-      {tab === "comments" && (
+      {tab === "activity" && (
         <div className="p-5">
-          {enrichedComments.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-6">No comments yet.</p>
+          {activities.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-6">No activity yet.</p>
           ) : (
             <div className="flex flex-col gap-3">
-              {enrichedComments.map((c) => (
-                <div key={c.id} className="flex gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 transition-all">
-                  {c.user ? (
-                    <img src={c.user.avt} alt="" className="w-7 h-7 rounded-full object-cover shrink-0 ring-2 ring-white" />
-                  ) : (
-                    <div className="w-7 h-7 bg-gray-200 rounded-full shrink-0" />
-                  )}
+              {activities.slice(0, 5).map((a) => (
+                <div key={a.id} className="flex gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:bg-white hover:border-gray-200 transition-all">
+                  <img src={a.actorPicture ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(a.actorName)}&background=7c3aed&color=fff`}
+                    alt="" className="w-7 h-7 rounded-full object-cover shrink-0 ring-2 ring-white" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-[12px] font-semibold text-gray-800">
-                        {c.user?.display_name ?? "Unknown"}
-                      </span>
-                      <span className="text-[10px] text-gray-400 shrink-0">{c.createdAt}</span>
+                      <span className="text-[12px] font-semibold text-gray-800">{a.actorName}</span>
+                      <span className="text-[10px] text-gray-400 shrink-0">{a.time}</span>
                     </div>
-                    <p className="text-[12px] text-gray-600 leading-snug mb-1.5">{c.content}</p>
-                    {c.task && (
-                      <div className="flex items-center gap-1.5">
-                        <TypeChip type={c.task.type} />
-                        <span className="text-[10px] text-gray-400 truncate">{c.task.title}</span>
-                      </div>
-                    )}
+                    <p className="text-[12px] text-gray-600 leading-snug">{a.action}</p>
                   </div>
                 </div>
               ))}
@@ -85,9 +50,7 @@ export default function ProjectCard() {
             </svg>
           </div>
           <p className="text-sm font-semibold text-gray-400">Assignment coming soon</p>
-          <p className="text-xs text-gray-300 text-center max-w-[200px] leading-relaxed">
-            Team assignment features will be available in the next release.
-          </p>
+          <p className="text-xs text-gray-300 text-center max-w-[200px] leading-relaxed">Team assignment features will be available in the next release.</p>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { FaChevronDown } from "react-icons/fa6";
@@ -7,6 +7,7 @@ import { GoSidebarCollapse } from "react-icons/go";
 import { IoSearchSharp } from "react-icons/io5";
 import { BiPlus } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
+import { RiDeleteBin6Line } from "react-icons/ri";
 import SockJS from "sockjs-client";
 import { Client, type IMessage } from "@stomp/stompjs";
 import rookworkLogo from "../../assets/logo-no-background.png";
@@ -27,37 +28,34 @@ interface HeaderProps {
 }
 
 function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated }: HeaderProps) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [openNotification, setOpenNotification] = useState(false);
   const [openCreatePanel, setOpenCreatePanel] = useState(false);
   const isElectron = window.navigator.userAgent.includes("Electron");
-
-  //  Real notifications 
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // ── Normalize isRead (Jackson serializes boolean isX() → "x") ───────────────
+  function normalize(all: NotificationResponse[]): NotificationResponse[] {
+    return all.map((n) => ({
+      ...n,
+      isRead: n.isRead ?? (n as unknown as { read?: boolean }).read ?? false,
+    }));
+  }
 
   const loadNotifications = useCallback(() => {
-    notificationApi.getAll().then((all) => {
-      const normalized = all.map((n) => ({
-        ...n,
-        isRead: n.isRead ?? (n as unknown as { read?: boolean }).read ?? false,
-      }));
-      setNotifications(normalized);
-    }).catch((err) => console.error("Failed to load notifications", err));
+    notificationApi.getAll()
+      .then((all) => setNotifications(normalize(all)))
+      .catch((err: unknown) => console.error("Failed to load notifications", err));
   }, []);
 
   // Load on mount
   useEffect(() => {
     let cancelled = false;
-    notificationApi.getAll().then((all) => {
-      if (!cancelled) {
-        // Jackson serialize boolean isRead() → "read" (bỏ prefix "is")
-        const normalized = all.map((n) => ({
-          ...n,
-          isRead: n.isRead ?? (n as unknown as { read?: boolean }).read ?? false,
-        }));
-        setNotifications(normalized);
-      }
-    }).catch(console.error);
+    notificationApi.getAll()
+      .then((all) => { if (!cancelled) setNotifications(normalize(all)); })
+      .catch(console.error);
     return () => { cancelled = true; };
   }, []);
 
@@ -65,7 +63,6 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
   useEffect(() => {
     const token = tokenStorage.getAccess();
     if (!token) return;
-
     const client = new Client({
       webSocketFactory: () => new SockJS(`${BASE_URL}/ws`) as WebSocket,
       connectHeaders: { Authorization: `Bearer ${token}` },
@@ -81,53 +78,11 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
         });
       },
     });
-
     client.activate();
     return () => { client.deactivate(); };
   }, [loadNotifications]);
 
-  const handleMarkAsRead = useCallback(async (id: string) => {
-    try {
-      await notificationApi.markAsRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
-      );
-    } catch (err) {
-      console.error("Failed to mark as read", err);
-    }
-  }, []);
-
-  const handleMarkAllAsRead = useCallback(async () => {
-    try {
-      await notificationApi.markAllAsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    } catch (err) {
-      console.error("Failed to mark all as read", err);
-    }
-  }, []);
-
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
-
-  function formatTime(iso: string) {
-    const d = new Date(iso);
-    const now = new Date();
-    const diffMins = Math.floor((now.getTime() - d.getTime()) / 60000);
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${Math.floor(diffHours / 24)}d ago`;
-  }
-
-  //  Original UI logic 
-
-  const handleLogout = () => {
-    if (isElectron) window.electron?.logout();
-    onLogout?.();
-  };
-
-  const userMenuRef = useRef<HTMLDivElement>(null);
-
+  // Close user menu on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node))
@@ -136,6 +91,52 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  const handleMarkAsRead = useCallback(async (id: string) => {
+    try {
+      await notificationApi.markAsRead(id);
+      setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
+    } catch (err: unknown) {
+      console.error("Failed to mark as read", err);
+    }
+  }, []);
+
+  const handleMarkAllAsRead = useCallback(async () => {
+    try {
+      await notificationApi.markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    } catch (err: unknown) {
+      console.error("Failed to mark all as read", err);
+    }
+  }, []);
+
+  const handleDelete = useCallback(async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      await notificationApi.delete(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (err: unknown) {
+      console.error("Failed to delete notification", err);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    if (isElectron) window.electron?.logout();
+    onLogout?.();
+  };
+
+  function formatTime(iso: string): string {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMins = Math.floor((now.getTime() - d.getTime()) / 60000);
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${Math.floor(diffHours / 24)}d ago`;
+  } 
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const initials = displayName
     ? displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
@@ -291,23 +292,37 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
           ) : (
             <ul className="divide-y divide-gray-100">
               {notifications.map((n) => {
-                const avatarInitials = n.title
-                  .split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+                const sender = n.sender;
+                const avatarInitials = (sender?.profileName ?? n.title)
+                  .split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+                const avatarPic = sender?.picture ?? null;
 
                 return (
                   <li
                     key={n.id}
-                    onClick={() => { if (!n.isRead) handleMarkAsRead(n.id); }}
-                    className={`hover:bg-gray-100 px-5 py-4 transition cursor-pointer ${
+                    onClick={() => {
+                      if (!n.isRead) handleMarkAsRead(n.id);
+                      navigate(`/issues/${n.issueId}`);
+                      setOpenNotification(false);
+                    }}
+                    className={`group relative hover:bg-gray-100 px-5 py-4 transition cursor-pointer ${
                       !n.isRead ? "bg-purple-50/40" : "bg-white"
                     }`}
                   >
                     <div className="flex gap-3">
-                      <div className="shrink-0 w-9 h-9 rounded-full bg-purple-200 text-purple-800 text-xs font-bold flex items-center justify-center">
-                        {avatarInitials}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-700 leading-snug font-semibold">
+                      {avatarPic ? (
+                        <img
+                          src={avatarPic}
+                          alt={sender?.profileName}
+                          className="shrink-0 w-9 h-9 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="shrink-0 w-9 h-9 rounded-full bg-purple-200 text-purple-800 text-xs font-bold flex items-center justify-center">
+                          {avatarInitials}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0 pr-6">
+                        <p className="text-sm font-semibold text-gray-700 leading-snug">
                           {n.title}
                         </p>
                         <p className="text-sm text-gray-600 mt-0.5 leading-snug">
@@ -321,19 +336,22 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
                         )}
                       </div>
                     </div>
+
+                    {/* Trash icon — hiện khi hover */}
+                    <button
+                      onClick={(e) => handleDelete(e, n.id)}
+                      className="absolute top-3 right-3 p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50
+                        opacity-0 group-hover:opacity-100 transition-all"
+                      title="Delete notification"
+                    >
+                      <RiDeleteBin6Line size={14} />
+                    </button>
                   </li>
                 );
               })}
             </ul>
           )}
         </div>
-
-        {/* Panel Footer
-        <div className="border-t border-gray-200 px-5 py-3">
-          <button className="w-full text-center text-sm font-medium text-purple-800 hover:text-purple-900 transition">
-            View all notifications
-          </button>
-        </div> */}
       </div>
 
       {/* Create Project Panel */}

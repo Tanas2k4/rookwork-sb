@@ -16,4 +16,7 @@ export const notificationApi = {
 
   markAllAsRead: () =>
     apiClient.put<void>("/api/notifications/read-all", {}),
+
+  delete: (notificationId: string) =>
+    apiClient.delete<void>(`/api/notifications/${notificationId}`),
 };

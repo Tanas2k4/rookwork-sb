@@ -331,6 +331,7 @@ export function TaskPanel({
 
               {childTypeMap[task.type] && (
                 <ChildrenSection
+                  key={`children-section-${task.id}-${(task.childIds ?? []).sort().join('-')}`}
                   task={task}
                   allTasks={allTasks}
                   onOpenTask={onOpenTask}

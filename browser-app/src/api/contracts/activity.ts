@@ -8,4 +8,4 @@ export interface ActivityResponse {
   entityName: string;
   metadata: string | null;
   createdAt: string;
-}
+} 

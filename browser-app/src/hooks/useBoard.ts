@@ -300,67 +300,117 @@ export function useBoard(projectId: string | null) {
     patchIssue(selectedTask.id, { deadline: date ?? undefined });
   }
 
-  //  Hierarchy (local only for now) 
-
-  //  Hierarchy 
-
-  function linkChild(parentId: number, childId: number) {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === parentId)
-          return { ...t, childIds: [...(t.childIds ?? []), childId] };
-        if (t.id === childId) return { ...t, parentId };
-        return t;
-      }),
-    );
-    if (selectedTask?.id === parentId)
-      setSelectedTask((p) =>
-        p ? { ...p, childIds: [...(p.childIds ?? []), childId] } : p,
-      );
-
-    // Lấy _uuid trực tiếp từ tasks array (đáng tin hơn idToUuid map)
-    const allTasks = tasks;
-    const childTask = allTasks.find((t) => t.id === childId) as (Task & { _uuid?: string }) | undefined;
-    const parentTask = allTasks.find((t) => t.id === parentId) as (Task & { _uuid?: string }) | undefined;
-    const childUuid = childTask?._uuid ?? idToUuid(childId);
-    const parentUuid = parentTask?._uuid ?? idToUuid(parentId);
-
-    if (projectId && childUuid && parentUuid) {
-      issueApi.update(projectId, childUuid, { parentId: parentUuid }).catch((err) => {
-        console.error("Failed to link child", err);
-        pushToast("Failed to link task", "error");
-      });
-    }
-    pushToast("Linked successfully");
+  // linkchild
+async function linkChild(parentId: number, childId: number) {
+  if (!projectId) {
+    pushToast("No projectId available", "error");
+    return;
   }
 
-  function unlinkChild(parentId: number, childId: number) {
+  const parentTask = tasks.find((t) => t.id === parentId) as (Task & { _uuid?: string }) | undefined;
+  const childTask = tasks.find((t) => t.id === childId) as (Task & { _uuid?: string }) | undefined;
+
+  const parentUuid = parentTask?._uuid ?? idToUuid(parentId);
+  const childUuid = childTask?._uuid ?? idToUuid(childId);
+
+  if (!childUuid) {
+    pushToast("Cannot find UUID of child task", "error");
+    return;
+  }
+
+  // Optimistic update - Update UI immediately
+  setTasks((prev) =>
+    prev.map((t) => {
+      if (t.id === parentId) {
+        return { ...t, childIds: [...(t.childIds ?? []), childId] };
+      }
+      if (t.id === childId) {
+        return { ...t, parentId };
+      }
+      return t;
+    })
+  );
+
+  // Also update selected task if it's the parent
+  if (selectedTask?.id === parentId) {
+    setSelectedTask((p) =>
+      p ? { ...p, childIds: [...(p.childIds ?? []), childId] } : p
+    );
+  }
+
+  // Call API to save to database
+  try {
+    await issueApi.update(projectId, childUuid, {
+      parentId: parentUuid,
+    });
+    pushToast("Linked successfully ✓");
+  } catch (err) {
+    console.error("Link child API error:", err);
+
+    // Rollback on failure
     setTasks((prev) =>
       prev.map((t) => {
-        if (t.id === parentId)
+        if (t.id === parentId) {
           return { ...t, childIds: (t.childIds ?? []).filter((id) => id !== childId) };
-        if (t.id === childId) return { ...t, parentId: null };
+        }
+        if (t.id === childId) {
+          return { ...t, parentId: null };
+        }
         return t;
-      }),
+      })
     );
-    if (selectedTask?.id === parentId)
-      setSelectedTask((p) =>
-        p ? { ...p, childIds: (p.childIds ?? []).filter((id) => id !== childId) } : p,
-      );
 
-    const childTask = tasks.find((t) => t.id === childId) as (Task & { _uuid?: string }) | undefined;
-    const childUuid = childTask?._uuid ?? idToUuid(childId);
-    if (projectId && childUuid) {
-      issueApi.update(projectId, childUuid, { parentId: undefined }).catch((err) => {
-        console.error("Failed to unlink child", err);
-        pushToast("Failed to unlink task", "error");
-      });
+    if (selectedTask?.id === parentId) {
+      setSelectedTask((p) =>
+        p ? { ...p, childIds: (p.childIds ?? []).filter((id) => id !== childId) } : p
+      );
     }
-    pushToast("Unlinked", "info");
+
+    pushToast("Failed to link - Changes reverted", "error");
   }
+}
+
+// unlinkchild
+async function unlinkChild(parentId: number, childId: number) {
+  if (!projectId) return;
+
+  const childTask = tasks.find((t) => t.id === childId) as (Task & { _uuid?: string }) | undefined;
+  const childUuid = childTask?._uuid ?? idToUuid(childId);
+
+  if (!childUuid) {
+    pushToast("Cannot find UUID of task", "error");
+    return;
+  }
+
+  // Optimistic update
+  setTasks((prev) =>
+    prev.map((t) => {
+      if (t.id === parentId) {
+        return { ...t, childIds: (t.childIds ?? []).filter((id) => id !== childId) };
+      }
+      if (t.id === childId) {
+        return { ...t, parentId: null };
+      }
+      return t;
+    })
+  );
+
+  if (selectedTask?.id === parentId) {
+    setSelectedTask((p) =>
+      p ? { ...p, childIds: (p.childIds ?? []).filter((id) => id !== childId) } : p
+    );
+  }
+
+  try {
+    await issueApi.update(projectId, childUuid, { parentId: null });
+    pushToast("Unlinked successfully", "info");
+  } catch (err) {
+    console.error("Unlink child API error:", err);
+    pushToast("Failed to unlink", "error");
+  }
+}
 
   //  Reorder (local only) 
-
   function reorderTasks(taskId: number, fromIndex: number, toIndex: number) {
     setTasks((prev) => {
       const task = prev.find((t) => t.id === taskId);

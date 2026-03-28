@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   MdAdd,
   MdClose,
@@ -34,16 +34,26 @@ export function ChildrenSection({
   const [showLinkDd, setShowLinkDd] = useState(false);
 
   const childType = childTypeMap[task.type];
-  if (!childType) return null;
+
+  const children = useMemo(() => {
+    return allTasks.filter((t) => (task.childIds ?? []).includes(t.id));
+  }, [allTasks, task.childIds]);
+
+  const candidates = useMemo(() => {
+    return allTasks.filter(
+      (t) =>
+        t.type === childType &&
+        !(task.childIds ?? []).includes(t.id) &&
+        t.parentId == null
+    );
+  }, [allTasks, task.childIds, childType]);
+
+  
+  if (!childType) {
+    return null;
+  }
 
   const label = childLabelMap[task.type]!;
-  const children = allTasks.filter((t) => (task.childIds ?? []).includes(t.id));
-  const candidates = allTasks.filter(
-    (t) =>
-      t.type === childType &&
-      !(task.childIds ?? []).includes(t.id) &&
-      t.parentId == null,
-  );
 
   return (
     <div>

@@ -24,7 +24,7 @@ export interface UpdateIssueRequest {
   deadline?: string;      // "2024-08-15" — maps to LocalDate
   assignedToId?: string;  // UUID string
   status?: Status;
-  parentId?: string;      // UUID string
+  parentId?: string | null;      // UUID string
 }
 
 export interface IssueResponse {

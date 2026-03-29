@@ -349,8 +349,8 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
                                 respondedAs === "accepted" ? "text-green-600" : "text-gray-400"
                               }`}>
                                 {respondedAs === "accepted"
-                                  ? "✓ You joined the project"
-                                  : "✗ You declined this invitation"}
+                                  ? "You joined the project"
+                                  : "You declined this invitation"}
                               </p>
                             ) : (
                               <div className="flex gap-2">
@@ -362,9 +362,9 @@ function Header({ setSidebar, avatarUrl, displayName, onLogout, onProjectCreated
                                     handleRespond(e, n.invitationId!, true);
                                   }}
                                   className="px-3 py-1 text-xs font-semibold text-white
-                                    bg-purple-700 hover:bg-purple-600 disabled:opacity-50 rounded-md transition"
+                                    bg-purple-900 hover:bg-purple-800 disabled:opacity-50 rounded-md transition"
                                 >
-                                  {isResponding ? "…" : "Accept"}
+                                  {isResponding ? "..." : "Accept"}
                                 </button>
                                 <button
                                   disabled={isResponding}

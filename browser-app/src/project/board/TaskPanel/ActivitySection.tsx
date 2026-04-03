@@ -6,6 +6,8 @@ import { useProject } from "../../../hooks/useProject";
 import { useWebSocket, type WsCommentPayload } from "../../../hooks/useWebSocket";
 import { tokenStorage } from "../../../api/tokenStorage";
 
+//  Types 
+
 interface ActivityResponse {
   id: string;
   actorName: string;
@@ -199,8 +201,9 @@ function ActivityLogItem({ log }: { log: ActivityResponse }) {
 
 type Tab = "all" | "comments" | "history";
 
-export function ActivitySection({ issueUuid }: { issueUuid: string }) {
-  const { projectId } = useProject();
+export function ActivitySection({ issueUuid, projectId: projectIdProp }: { issueUuid: string; projectId?: string | null }) {
+  const { projectId: contextProjectId } = useProject();
+  const projectId = projectIdProp ?? contextProjectId;
   const [comments, setComments] = useState<CommentResponse[]>([]);
   const [activities, setActivities] = useState<ActivityResponse[]>([]);
   const [tab, setTab] = useState<Tab>("all");

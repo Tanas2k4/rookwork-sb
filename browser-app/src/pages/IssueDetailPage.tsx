@@ -77,39 +77,33 @@ export default function IssueDetailPage() {
   const navigate    = useNavigate();
   const location    = useLocation();
 
-  const [issue, setIssue]           = useState<IssueResponse | null>(null);
-  const [notFound, setNotFound]     = useState(false);
+  const [issue, setIssue]             = useState<IssueResponse | null>(null);
+  const [notFound, setNotFound]       = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [editDescValue, setEditDescValue] = useState("");
 
-  // Fetch issue by id
   useEffect(() => {
     if (!issueId) return;
     let cancelled = false;
-
     issueApi.getById(issueId)
       .then((data) => { if (!cancelled) setIssue(data); })
       .catch(() => { if (!cancelled) setNotFound(true); });
-
     return () => { cancelled = true; };
   }, [issueId]);
 
-  // Optimistic patch helper — also calls API
   async function patchIssue(updates: UpdateIssueRequest) {
     if (!issue) return;
-    // optimistic
     setIssue((prev) => prev ? { ...prev, ...updates } : prev);
     try {
       const updated = await issueApi.update(issue.projectId, issue.id, updates);
       setIssue(updated);
     } catch (err) {
       console.error("Failed to update issue", err);
-      // revert not implemented — reload from server
       issueApi.getById(issue.id).then(setIssue).catch(console.error);
     }
   }
 
-  if (notFound || (!issue && issueId)) {
+  if (notFound) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400">
         <p className="text-sm">Issue not found.</p>
@@ -120,7 +114,7 @@ export default function IssueDetailPage() {
     );
   }
 
-  if (!issue) return null; // loading
+  if (!issue) return null;
 
   type LocationState = { from?: { label?: string; path?: string } };
   const routeState = location.state as LocationState | null;
@@ -140,7 +134,7 @@ export default function IssueDetailPage() {
     <div className="flex flex-col h-full bg-white overflow-hidden">
       {/* Breadcrumb */}
       <div onClick={() => navigate(backPath)}
-        className="flex items-center gap-2 px-8 pt-5 text-gray-700 hover:text-purple-700 transition cursor-pointer">
+        className="flex items-center gap-2 px-8 pt-5 text-gray-700 hover:text-purple-700 transition cursor-pointer w-fit">
         <IoIosArrowBack />
         <button className="text-sm">{backLabel}</button>
       </div>
@@ -222,11 +216,14 @@ export default function IssueDetailPage() {
             )}
           </div>
 
-          {/* Subtasks — local only (no subtask API) */}
+          {/* Subtasks */}
           <SubtasksSection subtasks={[]} onToggle={() => {}} onAdd={() => {}} onDelete={() => {}} />
 
-          {/* Activity — real API via ActivitySection */}
-          <ActivitySection issueUuid={issue.id} />
+          {/* Activity — pass projectId trực tiếp từ issue vì không có ProjectProvider ở route này */}
+          <ActivitySection
+            issueUuid={issue.id}
+            projectId={issue.projectId}
+          />
         </div>
 
         {/* Right — Details */}
